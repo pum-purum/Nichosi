@@ -29,7 +29,12 @@ func TestBuildUpdates(t *testing.T) {
 		{"generated", RowChange{Op: "update", Key: map[string]any{"id": "1"}, Values: map[string]any{"computed": "x"}}, true},
 		{"not null", RowChange{Op: "update", Key: map[string]any{"id": "1"}, Values: map[string]any{"other": nil}}, true},
 		{"non scalar", RowChange{Op: "update", Key: map[string]any{"id": "1"}, Values: map[string]any{"other": map[string]any{}}}, true},
-		{"delete", RowChange{Op: "delete", Key: map[string]any{"id": "1"}}, true},
+		{"delete", RowChange{Op: "delete", Key: map[string]any{"id": "1"}}, false},
+		{"delete with values", RowChange{Op: "delete", Key: map[string]any{"id": "1"}, Values: map[string]any{"other": "x"}}, true},
+		{"delete missing key", RowChange{Op: "delete"}, true},
+		{"delete null key", RowChange{Op: "delete", Key: map[string]any{"id": nil}}, true},
+		{"delete extra key", RowChange{Op: "delete", Key: map[string]any{"id": "1", "other": "x"}}, true},
+		{"insert", RowChange{Op: "insert", Values: map[string]any{"other": "x"}}, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			statements, err := BuildUpdates("db`name", "table", metadata, []RowChange{tc.change})
@@ -47,6 +52,11 @@ func TestBuildUpdates(t *testing.T) {
 			}
 			if strings.Contains(statements[0].SQL, "O'Reilly") || strings.Contains(statements[0].SQL, "other") {
 				t.Fatal(statements[0].SQL)
+			}
+			if tc.name == "delete" {
+				if statements[0].SQL != "DELETE FROM `db``name`.`table` WHERE `id` = ?;" || !reflect.DeepEqual(statements[0].Parameters, []any{"1"}) {
+					t.Fatalf("%+v", statements[0])
+				}
 			}
 			if tc.name == "changed only" {
 				if statements[0].SQL != "UPDATE `db``name`.`table` SET `na``me` = ? WHERE `id` = ?;" || !reflect.DeepEqual(statements[0].Parameters, []any{"O'Reilly; DROP TABLE x", "9007199254740993"}) {
@@ -225,5 +235,49 @@ func TestSafeEditKeyTypes(t *testing.T) {
 		if !safeEditKeyType(name) {
 			t.Fatalf("safe key type rejected: %s", name)
 		}
+	}
+}
+
+func TestDeleteCompositeKey(t *testing.T) {
+	metadata := EditMetadata{Columns: map[string]EditColumn{"tenant": {}, "id": {}}, Key: []string{"tenant", "id"}}
+	statements, err := BuildUpdates("db", "t`able", metadata, []RowChange{{Op: "delete", Key: map[string]any{"id": json.Number("9007199254740993"), "tenant": "x' OR 1=1 --"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if statements[0].SQL != "DELETE FROM `db`.`t``able` WHERE `tenant` = ? AND `id` = ?;" || !reflect.DeepEqual(statements[0].Parameters, []any{"x' OR 1=1 --", "9007199254740993"}) {
+		t.Fatalf("%+v", statements[0])
+	}
+}
+
+func TestApplyDeleteAtomicity(t *testing.T) {
+	metadata := EditMetadata{Columns: map[string]EditColumn{"id": {}}, Key: []string{"id"}}
+	statements, err := BuildUpdates("db", "t", metadata, []RowChange{{Op: "delete", Key: map[string]any{"id": "1"}}, {Op: "delete", Key: map[string]any{"id": "2"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name    string
+		matches []int
+		failAt  int
+		success bool
+	}{
+		{"success", []int{1, 1}, 0, true},
+		{"missing second row", []int{1, 0}, 0, false},
+		{"duplicate key", []int{2}, 0, false},
+		{"second delete fails", []int{1, 1}, 2, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &updateConnector{matches: tc.matches, affected: 1, failAt: tc.failAt}
+			db := sql.OpenDB(c)
+			defer db.Close()
+			applied, err := MySQLApplyUpdates(context.Background(), db, "db", "t", statements)
+			if tc.success {
+				if err != nil || applied != 2 || c.execs != 2 || !c.committed || c.rolledBack {
+					t.Fatalf("%d %v %+v", applied, err, c)
+				}
+			} else if err == nil || applied != 0 || c.committed || !c.rolledBack {
+				t.Fatalf("%d %v %+v", applied, err, c)
+			}
+		})
 	}
 }

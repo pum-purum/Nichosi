@@ -13,14 +13,7 @@ export function editableColumn(column: Column): boolean {
 }
 export function rowChanges(columns: Column[], original: unknown[], draft: DraftValue[], editKey: string[]): ChangeSet {
   const values: Record<string, unknown> = {};
-  const key: Record<string, unknown> = {};
-  for (const name of editKey) {
-    const index = columns.findIndex(column => column.name === name);
-    if (index < 0 || original[index] === null || original[index] === undefined) throw new Error('This row has no usable key.');
-    if (typeof original[index] === 'number' && columnKind(columns[index].type) === 'integer' && !Number.isSafeInteger(original[index])) throw new Error('This row key exceeds safe numeric precision. Reload the data before editing.');
-    Object.defineProperty(key, name, { value: original[index], enumerable: true });
-  }
-  if (!editKey.length) throw new Error('This table has no usable key.');
+  const key = rowKey(columns, original, editKey);
   columns.forEach((column, index) => {
     if (!editableColumn(column)) return;
     const before = draftValue(original[index]);
@@ -45,5 +38,19 @@ export function rowChanges(columns: Column[], original: unknown[], draft: DraftV
     Object.defineProperty(values, column.name, { value, enumerable: true });
   });
   return { changes: Object.keys(values).length ? [{ op: 'update', key, values }] : [] };
+}
+export function rowKey(columns: Column[], original: unknown[], editKey: string[]): Record<string, unknown> {
+  const key: Record<string, unknown> = {};
+  for (const name of editKey) {
+    const index = columns.findIndex(column => column.name === name);
+    if (index < 0 || original[index] === null || original[index] === undefined) throw new Error('This row has no usable key.');
+    if (typeof original[index] === 'number' && columnKind(columns[index].type) === 'integer' && !Number.isSafeInteger(original[index])) throw new Error('This row key exceeds safe numeric precision. Reload the data before editing.');
+    Object.defineProperty(key, name, { value: original[index], enumerable: true });
+  }
+  if (!editKey.length) throw new Error('This table has no usable key.');
+  return key;
+}
+export function rowDeletion(columns: Column[], original: unknown[], editKey: string[]): ChangeSet {
+  return { changes: [{ op: 'delete', key: rowKey(columns, original, editKey) }] };
 }
 export function createChangeSetStore() { return writable<ChangeSet>({ changes: [] }); }

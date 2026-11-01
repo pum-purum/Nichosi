@@ -178,7 +178,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Validates update-only changes against table metadata. SQL uses placeholders; parameters are returned separately. Only changed columns belong in values. */
+        /** @description Validates update and delete changes against table metadata. SQL uses placeholders; parameters are returned separately. Only changed columns belong in update values; deletes contain the original row key and no values. */
         post: operations["previewChanges"];
         delete?: never;
         options?: never;
@@ -195,7 +195,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Applies update-only changes in one transaction with a ten-second timeout; rolls back on any error or when a key does not match exactly one row. Read-only connections and tables without InnoDB storage and a usable primary or unique key are rejected. */
+        /** @description Applies update and delete changes in one transaction with a ten-second timeout; rolls back on any error or when a key does not match exactly one row. Read-only connections and tables without InnoDB storage and a usable primary or unique key are rejected. */
         post: operations["applyChanges"];
         delete?: never;
         options?: never;

@@ -126,14 +126,16 @@ func changeValue(value any) (any, error) {
 	}
 }
 
-// BuildUpdates uses only submitted value columns, with identifiers validated against metadata.
+// BuildUpdates builds updates and deletes with identifiers validated against metadata.
 func BuildUpdates(database, table string, metadata EditMetadata, changes []RowChange) ([]UpdateStatement, error) {
 	if len(changes) == 0 || len(changes) > 100 || len(metadata.Key) == 0 {
 		return nil, ErrInvalidChange
 	}
 	statements := make([]UpdateStatement, 0, len(changes))
 	for _, change := range changes {
-		if change.Op != "update" || len(change.Values) == 0 || len(change.Key) != len(metadata.Key) {
+		if (change.Op != "update" && change.Op != "delete") ||
+			(change.Op == "update" && len(change.Values) == 0) ||
+			(change.Op == "delete" && len(change.Values) != 0) || len(change.Key) != len(metadata.Key) {
 			return nil, ErrInvalidChange
 		}
 		names := make([]string, 0, len(change.Values))
@@ -170,7 +172,11 @@ func BuildUpdates(database, table string, metadata EditMetadata, changes []RowCh
 		}
 		s.where = strings.Join(predicates, " AND ")
 		s.Parameters = append(s.Parameters, s.keyParameters...)
-		s.SQL = "UPDATE " + QuoteIdent(database) + "." + QuoteIdent(table) + " SET " + strings.Join(assignments, ", ") + " WHERE " + s.where + ";"
+		if change.Op == "delete" {
+			s.SQL = "DELETE FROM " + QuoteIdent(database) + "." + QuoteIdent(table) + " WHERE " + s.where + ";"
+		} else {
+			s.SQL = "UPDATE " + QuoteIdent(database) + "." + QuoteIdent(table) + " SET " + strings.Join(assignments, ", ") + " WHERE " + s.where + ";"
+		}
 		statements = append(statements, s)
 	}
 	return statements, nil

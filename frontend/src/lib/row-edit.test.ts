@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { draftValue, rowChanges } from './row-edit';
+import { draftValue, rowChanges, rowDeletion } from './row-edit';
 import type { components } from './api/schema';
 type Column = components['schemas']['Column'];
 const columns: Column[] = [
@@ -44,5 +44,16 @@ describe('record changes', () => {
     const unusual = [{ ...columns[1], name: '__proto__' }];
     const changes = rowChanges(unusual, ['before'], [{ text: 'after', isNull: false }], ['__proto__']);
     expect(JSON.stringify(changes)).toContain('"__proto__":"after"');
+  });
+});
+
+describe('record deletion', () => {
+  it('uses original composite key values without including row contents', () => {
+    expect(rowDeletion(columns, row, ['id', 'amount'])).toEqual({ changes: [{ op: 'delete', key: { id: row[0], amount: row[2] } }] });
+  });
+  it('rejects missing, null, and unsafe numeric keys', () => {
+    for (const key of [[], ['missing']]) expect(() => rowDeletion(columns, row, key)).toThrow('key');
+    expect(() => rowDeletion(columns, [null, ...row.slice(1)], ['id'])).toThrow('key');
+    expect(() => rowDeletion(columns, [9007199254740992, ...row.slice(1)], ['id'])).toThrow('precision');
   });
 });

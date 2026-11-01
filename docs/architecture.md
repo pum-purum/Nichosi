@@ -58,5 +58,10 @@ SQL together with the bound values. Only modified columns appear in SET; unchang
 key columns may still appear in WHERE to identify the record. Apply is available
 only after the current changes have a successful preview. The backend validates
 metadata again and applies the ChangeSet in one transaction with a ten-second
-timeout. Any failure rolls back the entire set. This flow currently supports updates;
-inserts and deletes are not implemented.
+timeout. Any failure rolls back the entire set. This flow supports updates and deletes; inserts are not implemented.
+
+The row trash button opens a modal confirmation showing every column of the original
+record and a parameterized SQL preview. Cancel is initially focused; Escape cancels
+before applying. Delete is enabled only after a successful preview. Deletion uses
+the original complete row key and the same transaction and read-only checks as updates.
+The modal remains open on failure; successful deletion refreshes the current data page.

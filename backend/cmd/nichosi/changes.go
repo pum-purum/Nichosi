@@ -91,7 +91,7 @@ func writeChangeError(w http.ResponseWriter, err error) {
 	case errors.Is(err, driver.ErrReadOnlyTable):
 		writeError(w, 403, "read_only", "Editing requires an InnoDB table with a primary or non-null unique key")
 	case errors.Is(err, driver.ErrInvalidChange):
-		writeError(w, 400, "invalid_change", "Invalid update columns, values, or row key")
+		writeError(w, 400, "invalid_change", "Invalid change operation, columns, values, or row key")
 	case errors.Is(err, driver.ErrRowConflict):
 		writeError(w, 409, "row_conflict", "The row no longer exists or its key is not unique; changes were rolled back")
 	default:
