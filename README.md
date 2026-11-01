@@ -56,7 +56,7 @@ Run the following commands from the `Nichosi` folder.
 3. Build and start Nichosi:
 
    ```sh
-   make app-up
+   make re
    ```
 
    This builds the app's Docker image and starts the container in the background. The first build can take a few minutes.
@@ -86,7 +86,7 @@ not `MYSQL_*` environment variables.
 The Compose configuration enables local preview, binds the published port to
 `127.0.0.1`, and mounts the connection file. Keep local preview restricted to your
 own computer. To run the backend directly with saved profiles, use
-`NICHOSI_CONNECTIONS_FILE="$PWD/connections.json" make be-run`.
+`NICHOSI_CONNECTIONS_FILE="$PWD/connections.json" make run`.
 
 ## Table information
 
@@ -107,7 +107,7 @@ no separate table storage; table-only indexes, foreign keys and triggers are not
 ## Stop the app
 
 ```sh
-make app-down
+make down
 ```
 
 The web app is available only from your own computer by default. Docker mounts `connections.json` as read-only. Do not commit this file or share it: it contains database passwords.

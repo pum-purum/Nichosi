@@ -42,7 +42,7 @@
 4. Если агенту требуется изменить контракт, он должен внести минимальные изменения в `api/openapi.yaml` и явно сообщить об этом. Главная сессия решает, нужно ли адаптировать другую часть приложения.
 
 ## Команды
-Список команд приведён в Makefile: `make app-up`, `make app-down`, `make be-run`, `make be-test`, `make fe-dev`, `make gen-types`, `make mock`, `make docker-build`.
+Список команд приведён в Makefile: `make re` (пересборка и запуск), `make down`, `make run`, `make test`, `make vet`, `make install`, `make dev`, `make types`, `make types-go`, `make mock`. Для просмотра списка используйте `make help`.
 
 ## Git
 - Делайте небольшие коммиты с повелительным сообщением на английском языке, например `Add keyset pagination for MySQL driver`.
