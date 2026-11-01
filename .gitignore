@@ -7,4 +7,3 @@ bin/
 .env.*
 connections.json
 .DS_Store
-backend/internal/web/dist/

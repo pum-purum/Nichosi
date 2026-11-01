@@ -305,8 +305,6 @@ func (a *app) getObjectDefinition(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, DatabaseObject{Name: object.Name, Type: DatabaseObjectType(object.Type), Definition: &object.Definition, Details: &object.Details})
 }
 
-func quoteMySQLIdent(name string) string { return "`" + strings.ReplaceAll(name, "`", "``") + "`" }
-
 func (a *app) queryRows(w http.ResponseWriter, r *http.Request)     { a.queryObjectRows(w, r, false) }
 func (a *app) queryViewRows(w http.ResponseWriter, r *http.Request) { a.queryObjectRows(w, r, true) }
 func (a *app) queryObjectRows(w http.ResponseWriter, r *http.Request, view bool) {

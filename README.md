@@ -69,6 +69,25 @@ If the app started before you finished editing `connections.json`, restart it to
 docker compose -f deploy/docker-compose.yml restart
 ```
 
+## Backend configuration
+
+The backend reads these variables from the process environment; it does not load
+`.env` files. Database connection details come from `connections.json` or the API,
+not `MYSQL_*` environment variables.
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `NICHOSI_ADDR` | HTTP listen address | `127.0.0.1:8080` |
+| `NICHOSI_ADMIN_TOKEN` | Bearer token for API authentication; at least 24 characters required for non-loopback binding unless local preview is enabled | Unset |
+| `NICHOSI_CONNECTIONS_FILE` | JSON connection profile file loaded at startup | No file loaded |
+| `NICHOSI_LOCAL_PREVIEW` | Set to `true` to allow non-loopback binding without an admin token for local Docker preview | Disabled |
+| `NICHOSI_TEST_DSN` | MySQL DSN used only by optional integration tests | Tests skipped |
+
+The Compose configuration enables local preview, binds the published port to
+`127.0.0.1`, and mounts the connection file. Keep local preview restricted to your
+own computer. To run the backend directly with saved profiles, use
+`NICHOSI_CONNECTIONS_FILE="$PWD/connections.json" make be-run`.
+
 ## Table information
 
 Use **Table info** at the bottom of the table workspace to inspect storage details,

@@ -1,4 +1,3 @@
-# Skeleton: finalize after the frontend exists and the backend embeds frontend/dist.
 FROM node:22-alpine AS web
 WORKDIR /src/frontend
 RUN corepack enable
