@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -141,9 +142,7 @@ func MySQLRows(ctx context.Context, db *sql.DB, database, name string, view bool
 			return page, &RowError{"query_failed", err}
 		}
 		for i, v := range values {
-			if b, ok := v.([]byte); ok {
-				values[i] = string(b)
-			}
+			values[i] = JSONRowValue(v)
 		}
 		page.Rows = append(page.Rows, values)
 	}
@@ -154,4 +153,21 @@ func MySQLRows(ctx context.Context, db *sql.DB, database, name string, view bool
 		return page, &RowError{"query_failed", err}
 	}
 	return page, nil
+}
+
+// JSONRowValue preserves integers that JavaScript cannot represent exactly.
+func JSONRowValue(value any) any {
+	switch v := value.(type) {
+	case []byte:
+		return string(v)
+	case int64:
+		if v > 9007199254740991 || v < -9007199254740991 {
+			return strconv.FormatInt(v, 10)
+		}
+	case uint64:
+		if v > 9007199254740991 {
+			return strconv.FormatUint(v, 10)
+		}
+	}
+	return value
 }

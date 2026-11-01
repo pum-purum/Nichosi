@@ -178,6 +178,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description Validates update-only changes against table metadata. SQL uses placeholders; parameters are returned separately. Only changed columns belong in values. */
         post: operations["previewChanges"];
         delete?: never;
         options?: never;
@@ -194,7 +195,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Applies the whole ChangeSet in one transaction; rolls back on any error. */
+        /** @description Applies update-only changes in one transaction with a ten-second timeout; rolls back on any error or when a key does not match exactly one row. Read-only connections and tables without InnoDB storage and a usable primary or unique key are rejected. */
         post: operations["applyChanges"];
         delete?: never;
         options?: never;
@@ -307,6 +308,8 @@ export interface components {
             type: string;
             nullable: boolean;
             primaryKey: boolean;
+            /** @description Generated columns are displayed but cannot be edited. */
+            generated?: boolean;
             foreignKey?: components["schemas"]["ForeignRef"] | null;
         };
         TableMetadata: {
@@ -391,6 +394,8 @@ export interface components {
             /** @description Row values in column order. JSON null is SQL NULL. */
             rows: unknown[][];
             nextCursor?: string | null;
+            /** @description Ordered columns of a primary or non-null unique key used to identify edited rows. Binary, temporal, prefix, and functional keys are excluded. Empty for read-only sources. */
+            editKey?: string[];
             editable: boolean;
             /** Format: int64 */
             totalRows: number;
@@ -403,7 +408,7 @@ export interface components {
             key?: {
                 [key: string]: unknown;
             };
-            /** @description Column to new value (insert and update). */
+            /** @description Column to new value (insert and update). For updates, include only modified columns. Primary key columns cannot be updated. */
             values?: {
                 [key: string]: unknown;
             };
@@ -413,6 +418,8 @@ export interface components {
         };
         ChangePreview: {
             statements: string[];
+            /** @description Bound parameter values for each statement, in placeholder order. */
+            parameters?: unknown[][];
             warnings: string[];
         };
         ApplyResult: {

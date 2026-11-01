@@ -91,7 +91,7 @@ type Change struct {
 	Key *map[string]interface{} `json:"key,omitempty"`
 	Op  ChangeOp                `json:"op"`
 
-	// Values Column to new value (insert and update).
+	// Values Column to new value (insert and update). For updates, include only modified columns. Primary key columns cannot be updated.
 	Values *map[string]interface{} `json:"values,omitempty"`
 }
 
@@ -100,8 +100,10 @@ type ChangeOp string
 
 // ChangePreview defines model for ChangePreview.
 type ChangePreview struct {
-	Statements []string `json:"statements"`
-	Warnings   []string `json:"warnings"`
+	// Parameters Bound parameter values for each statement, in placeholder order.
+	Parameters *[][]interface{} `json:"parameters,omitempty"`
+	Statements []string         `json:"statements"`
+	Warnings   []string         `json:"warnings"`
 }
 
 // ChangeSet defines model for ChangeSet.
@@ -112,10 +114,13 @@ type ChangeSet struct {
 // Column defines model for Column.
 type Column struct {
 	ForeignKey *ForeignRef `json:"foreignKey"`
-	Name       string      `json:"name"`
-	Nullable   bool        `json:"nullable"`
-	PrimaryKey bool        `json:"primaryKey"`
-	Type       string      `json:"type"`
+
+	// Generated Generated columns are displayed but cannot be edited.
+	Generated  *bool  `json:"generated,omitempty"`
+	Name       string `json:"name"`
+	Nullable   bool   `json:"nullable"`
+	PrimaryKey bool   `json:"primaryKey"`
+	Type       string `json:"type"`
 }
 
 // ColumnProfile defines model for ColumnProfile.
@@ -254,10 +259,13 @@ type RelationNode struct {
 
 // RowsPage defines model for RowsPage.
 type RowsPage struct {
-	Columns        []Column `json:"columns"`
-	Editable       bool     `json:"editable"`
-	NextCursor     *string  `json:"nextCursor"`
-	ReadOnlyReason *string  `json:"readOnlyReason"`
+	Columns []Column `json:"columns"`
+
+	// EditKey Ordered columns of a primary or non-null unique key used to identify edited rows. Binary, temporal, prefix, and functional keys are excluded. Empty for read-only sources.
+	EditKey        *[]string `json:"editKey,omitempty"`
+	Editable       bool      `json:"editable"`
+	NextCursor     *string   `json:"nextCursor"`
+	ReadOnlyReason *string   `json:"readOnlyReason"`
 
 	// Rows Row values in column order. JSON null is SQL NULL.
 	Rows      [][]interface{} `json:"rows"`

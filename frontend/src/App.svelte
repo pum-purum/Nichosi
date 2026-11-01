@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Braces, Clock, Code2, Database, Eye, HardDrive, KeyRound, Pencil, Search, Server, ShieldCheck, TableProperties, Trash2, Unplug, UserRound, X, Zap } from '@lucide/svelte';
   import { onMount } from 'svelte';
+  import RecordEditor from './lib/RecordEditor.svelte';
   import TableMetadata from './lib/TableMetadata.svelte';
   import CellValue from './lib/CellValue.svelte';
   import ObjectDefinition from './lib/ObjectDefinition.svelte';
@@ -51,7 +52,16 @@
   function clearObjectFilter() { tableSearch = ''; filterInput?.focus(); }
   let largestTableBytes = $derived(tables.reduce((largest, table) => Math.max(largest, table.dataBytes + table.indexBytes), 0));
   let rowsPage = $state<RowsPage | null>(null);
-  const rowActionDisabledReason = $derived(activeObjectType === 'view' ? 'Views are read-only' : selectedConnection?.readonly ? 'Read-only connection' : !rowsPage?.editable ? rowsPage?.readOnlyReason || 'Read-only table' : '');
+  let editingRow = $state<unknown[] | null>(null);
+  function editRow(row: unknown[]) {
+    if (rowActionDisabledReason || rowsLoading || databaseLoading || !rowsPage?.editKey?.length) return;
+    editingRow = [...row];
+  }
+  async function recordSaved() {
+    editingRow = null;
+    await selectTable(relationName, currentPage);
+  }
+  const rowActionDisabledReason = $derived(activeObjectType === 'view' ? 'Views are read-only' : selectedConnection?.readonly !== false ? 'Read-only connection' : !rowsPage?.editable ? rowsPage?.readOnlyReason || 'Read-only table' : '');
   let orderBy = $state<components['schemas']['OrderBy'][]>([]);
   let currentPage = $state(1);
   let pageSize = $state(50);
@@ -107,6 +117,7 @@
   }
 
   async function openDatabase(connection: Connection) {
+    editingRow = null;
     const requestId = ++databaseRequestId;
     rowsRequestId += 1;
     rowsLoading = false;
@@ -130,6 +141,7 @@
 
   async function selectTable(name: string, page = 1, control: number | 'previous' | 'next' | null = null, kind: 'table' | 'view' = activeObjectType === 'view' ? 'view' : 'table') {
     if (!selectedConnection || !name) return;
+    editingRow = null;
     const requestId = ++rowsRequestId;
     const minimumLoadingTime = new Promise<void>((resolve) => setTimeout(resolve, 200));
     const changingRelation = activeObjectType !== kind || relationName !== name;
@@ -177,6 +189,7 @@
   }
 
   function showConnections() {
+    editingRow = null;
     databaseRequestId++;
     rowsRequestId++;
     definitionRequestId++;
@@ -191,6 +204,7 @@
   }
 
   function selectSection(type: ObjectType) {
+    editingRow = null;
     orderBy = []; rowsRequestId++; rowsLoading = false; pendingPageControl = null; rowsPage = null; currentPage = 1; error = '';
     activeObjectType = type;
     tableTab = 'data'; tableSearch = '';
@@ -207,6 +221,7 @@
   }
 
   async function selectObject(object: DatabaseObject) {
+    editingRow = null;
     const changed = selectedObject?.name !== object.name || activeObjectType !== object.type;
     selectedObject = object;
     activeObjectType = object.type;
@@ -258,6 +273,7 @@
   }
 
   async function disconnect() {
+    editingRow = null;
     const connection = selectedConnection;
     if (!connection) return;
     const requestId = ++databaseRequestId;
@@ -364,7 +380,9 @@
         </aside>
 
         <div class="workspace-main">
-        {#if activeObjectType === 'table' || activeObjectType === 'view'}
+        {#if editingRow && rowsPage && selectedConnection}
+          <RecordEditor connectionId={selectedConnection.id} table={selectedTable} columns={rowsPage.columns} row={editingRow} editKey={rowsPage.editKey ?? []} cancel={() => editingRow = null} saved={recordSaved} />
+        {:else if activeObjectType === 'table' || activeObjectType === 'view'}
           <div class="table-main">
             <div class="table-bottom-tabs" tabindex="-1" role="tablist" aria-label={activeObjectType === 'view' ? 'View workspace' : 'Table workspace'} onkeydown={(event) => {
               if (!relationName) return;
@@ -377,7 +395,7 @@
               <button id="table-info-tab" role="tab" aria-selected={tableTab === 'info'} aria-controls="table-info-panel" tabindex={tableTab === 'info' ? 0 : -1} disabled={!relationName} onclick={() => tableTab = 'info'}><Database size={15} />{activeObjectType === 'view' ? 'View info' : 'Table info'}</button>
             </div>
             <div id="table-data-panel" role="tabpanel" tabindex="0" aria-labelledby="table-data-tab" hidden={tableTab !== 'data'} class="table-data-panel">
-            <div class="data-grid-wrap" aria-busy={databaseLoading || rowsLoading}>{#if !databaseLoading && error}<DataError message={error} busy={reconnecting} reconnect={() => void reconnectDatabase()} back={showConnections} />{:else if rowsPage}<table class="data-grid" inert={databaseLoading || rowsLoading}><thead><tr>{#each rowsPage.columns as column}<th aria-sort={orderBy[0]?.column === column.name ? orderBy[0].direction === 'desc' ? 'descending' : 'ascending' : 'none'}><button class="column-sort" onclick={() => sortColumn(column.name)} title={'Sort by ' + column.name}><span class="column-name">{#if column.primaryKey}<KeyRound size={13} />{/if}{column.name}<span class="sort-arrows" aria-hidden="true"><span class="sort-chevron sort-chevron-up" class:active={orderBy[0]?.column === column.name && orderBy[0].direction === 'asc'}></span><span class="sort-chevron sort-chevron-down" class:active={orderBy[0]?.column === column.name && orderBy[0].direction === 'desc'}></span></span></span></button><small>{column.type}{#if column.primaryKey}<em>PK</em>{/if}</small></th>{/each}{#if activeObjectType === 'table'}<th class="actions-head">Actions</th>{/if}</tr></thead><tbody>{#each pagedRows as row}<tr>{#each row as value, columnIndex}<td><CellValue {value} sqlType={rowsPage.columns[columnIndex]?.type ?? ''} /></td>{/each}{#if activeObjectType === 'table'}<td class="row-actions"><button class="edit-row" aria-label="Edit row" disabled={!!rowActionDisabledReason} title={rowActionDisabledReason || 'Edit row'}><Pencil size={16} /></button><button class="delete-row" aria-label="Delete row" disabled={!!rowActionDisabledReason} title={rowActionDisabledReason || 'Delete row'}><Trash2 size={16} /></button></td>{/if}</tr>{/each}</tbody></table>{:else if !databaseLoading && !rowsLoading}<p class="grid-empty">{#if activeObjectType === 'view'}Select a view from the left menu.{:else if tables.length === 0}No tables in this database.{:else}Select a table from the left menu.{/if}</p>{/if}{#if databaseLoading || (rowsLoading && pendingPageControl === null)}<div class="grid-loading" role="status"><span class="grid-spinner"></span><span>Loading data…</span></div>{/if}</div>
+            <div class="data-grid-wrap" aria-busy={databaseLoading || rowsLoading}>{#if !databaseLoading && error}<DataError message={error} busy={reconnecting} reconnect={() => void reconnectDatabase()} back={showConnections} />{:else if rowsPage}<table class="data-grid" inert={databaseLoading || rowsLoading}><thead><tr>{#each rowsPage.columns as column}<th aria-sort={orderBy[0]?.column === column.name ? orderBy[0].direction === 'desc' ? 'descending' : 'ascending' : 'none'}><button class="column-sort" onclick={() => sortColumn(column.name)} title={'Sort by ' + column.name}><span class="column-name">{#if column.primaryKey}<KeyRound size={13} />{/if}{column.name}<span class="sort-arrows" aria-hidden="true"><span class="sort-chevron sort-chevron-up" class:active={orderBy[0]?.column === column.name && orderBy[0].direction === 'asc'}></span><span class="sort-chevron sort-chevron-down" class:active={orderBy[0]?.column === column.name && orderBy[0].direction === 'desc'}></span></span></span></button><small>{column.type}{#if column.primaryKey}<em>PK</em>{/if}</small></th>{/each}{#if activeObjectType === 'table'}<th class="actions-head">Actions</th>{/if}</tr></thead><tbody>{#each pagedRows as row}<tr>{#each row as value, columnIndex}<td><CellValue {value} sqlType={rowsPage.columns[columnIndex]?.type ?? ''} /></td>{/each}{#if activeObjectType === 'table'}<td class="row-actions"><button class="edit-row" onclick={() => editRow(row)} aria-label="Edit row" disabled={!!rowActionDisabledReason} title={rowActionDisabledReason || 'Edit row'}><Pencil size={16} /></button><button class="delete-row" aria-label="Delete row" disabled title={rowActionDisabledReason || 'Deletion is not available yet'}><Trash2 size={16} /></button></td>{/if}</tr>{/each}</tbody></table>{:else if !databaseLoading && !rowsLoading}<p class="grid-empty">{#if activeObjectType === 'view'}Select a view from the left menu.{:else if tables.length === 0}No tables in this database.{:else}Select a table from the left menu.{/if}</p>{/if}{#if databaseLoading || (rowsLoading && pendingPageControl === null)}<div class="grid-loading" role="status"><span class="grid-spinner"></span><span>Loading data…</span></div>{/if}</div>
             {#if !error}<footer class="grid-footer"><span>Showing <strong>{rowsPage && rowsPage.totalRows > 0 ? `${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, rowsPage.totalRows)} of ${rowsPage.totalRows}` : '0 of 0'} rows</strong></span><label class="page-size-label">Rows/page: <select aria-label="Rows per page" disabled={rowsLoading || databaseLoading || !relationName} bind:value={pageSize} onchange={() => void selectTable(relationName, 1)}><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select></label><span class="grid-summary">Rows: <strong>{pagedRows.length}</strong> &nbsp; Columns: <strong>{rowsPage?.columns.length ?? 0}</strong></span><span class="pagination">{#if currentPage > 1}<button disabled={rowsLoading} onclick={() => void selectTable(relationName, currentPage - 1, 'previous')} aria-label="Previous page" aria-busy={pendingPageControl === 'previous'}>{#if pendingPageControl === 'previous'}<span class="page-spinner" aria-hidden="true"></span>{:else}‹{/if}</button>{/if}{#each pageItems as page, index}{#if index > 0 && page > pageItems[index - 1] + 1}<span class="pagination-ellipsis">…</span>{/if}{#if currentPage === page}<span class="active" aria-current="page" aria-label={`Page ${page}`}>{page}</span>{:else}<button disabled={rowsLoading} onclick={() => void selectTable(relationName, page, page)} aria-label={`Page ${page}`} aria-busy={pendingPageControl === page}>{#if pendingPageControl === page}<span class="page-spinner" aria-hidden="true"></span>{:else}{page}{/if}</button>{/if}{/each}{#if currentPage < totalPages}<button disabled={rowsLoading} onclick={() => void selectTable(relationName, currentPage + 1, 'next')} aria-label="Next page" aria-busy={pendingPageControl === 'next'}>{#if pendingPageControl === 'next'}<span class="page-spinner" aria-hidden="true"></span>{:else}›{/if}</button>{/if}</span></footer>{/if}
             </div>
             <div id="table-info-panel" role="tabpanel" tabindex="0" aria-labelledby="table-info-tab" class="table-info-panel" hidden={tableTab !== 'info'}>

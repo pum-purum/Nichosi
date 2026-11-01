@@ -81,6 +81,8 @@ func main() {
 	mux.Handle("POST /api/connections/{connId}/views/{view}/rows", application.authorize(http.HandlerFunc(application.queryViewRows)))
 	mux.Handle("GET /api/connections/{connId}/views/{view}/metadata", application.authorize(http.HandlerFunc(application.getViewMetadata)))
 	mux.Handle("POST /api/connections/{connId}/tables/{table}/rows", application.authorize(http.HandlerFunc(application.queryRows)))
+	mux.Handle("POST /api/connections/{connId}/tables/{table}/changes/preview", application.authorize(http.HandlerFunc(application.previewChanges)))
+	mux.Handle("POST /api/connections/{connId}/tables/{table}/changes/apply", application.authorize(http.HandlerFunc(application.applyChanges)))
 	mux.Handle("/", application.static)
 
 	server := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
@@ -377,7 +379,23 @@ func (a *app) queryObjectRows(w http.ResponseWriter, r *http.Request, view bool)
 	for _, c := range result.Columns {
 		page.Columns = append(page.Columns, Column{Name: c.Name, Type: c.Type, Nullable: c.Nullable, PrimaryKey: c.PrimaryKey})
 	}
-	reason := "Editing is not available yet"
+	reason := "Read-only connection"
+	if !view && !item.Readonly && !connectionReadonly(item.input.Readonly) {
+		metadata, editErr := driver.MySQLEditMetadata(ctx, item.pool, item.Database, name)
+		if editErr == nil {
+			page.Editable = true
+			page.EditKey = &metadata.Key
+			for i := range page.Columns {
+				generated := metadata.Columns[page.Columns[i].Name].Generated
+				page.Columns[i].Generated = &generated
+			}
+			reason = ""
+		} else if errors.Is(editErr, driver.ErrReadOnlyTable) {
+			reason = "Editing requires an InnoDB table with a primary or non-null unique key"
+		} else {
+			reason = "Could not verify table editing metadata"
+		}
+	}
 	if view {
 		reason = "Views are read-only"
 	}

@@ -26,7 +26,7 @@ type Driver interface {
 
 ## Features
 - Connections: profiles, explicit readonly boolean (true by default), SSH tunnel, TLS, cancel query.
-- Editing: virtualized grid, keyset pagination, ChangeSet (preview SQL, one transaction), PK-only editing.
+- Editing: virtualized grid, keyset pagination, ChangeSet (preview SQL, one transaction), primary or non-null unique key editing.
 - Relations: real FKs, inferred links by naming plus data check (orphan ratio), manual links; graph depth 1-3.
 - Statistics: table sizes, column profile (sampled), unused/duplicate indexes, processlist, slow queries.
 
@@ -40,3 +40,23 @@ parameterized SQL only; row limit and timeout on every UI query; audit log of wr
 3. Relations graph and inference.
 4. Statistics.
 5. Polish: SSH tunnel, PostgreSQL, Docker image on Docker Hub and ghcr.io, desktop build.
+
+## Record editing
+
+The row pencil opens a record editor. Changes are accumulated in a Svelte ChangeSet
+store; restoring a field to its original value removes it from the update. SQL NULL
+is an explicit choice distinct from an empty string. Numeric text retains precision.
+The original primary key (or a complete non-null unique key) identifies the row throughout editing. Primary key columns are read-only in the form and rejected
+by the backend when included in update values. Tables without a usable key and read-only connections
+cannot be edited; views always remain read-only. Updates currently require InnoDB
+so the transaction can roll back. Generated and binary fields are shown read-only.
+Keys containing binary or temporal columns, prefix indexes, and functional indexes
+are excluded; another usable key is selected when available.
+
+The editor requests a debounced preview from the backend and displays parameterized
+SQL together with the bound values. Only modified columns appear in SET; unchanged
+key columns may still appear in WHERE to identify the record. Apply is available
+only after the current changes have a successful preview. The backend validates
+metadata again and applies the ChangeSet in one transaction with a ten-second
+timeout. Any failure rolls back the entire set. This flow currently supports updates;
+inserts and deletes are not implemented.

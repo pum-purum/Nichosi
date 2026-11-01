@@ -191,6 +191,7 @@ paths:
   /api/connections/{connId}/tables/{table}/changes/preview:
     post:
       operationId: previewChanges
+      description: Validates update-only changes against table metadata. SQL uses placeholders; parameters are returned separately. Only changed columns belong in values.
       parameters:
         - { $ref: "#/components/parameters/ConnId" }
         - { $ref: "#/components/parameters/Table" }
@@ -209,7 +210,7 @@ paths:
   /api/connections/{connId}/tables/{table}/changes/apply:
     post:
       operationId: applyChanges
-      description: Applies the whole ChangeSet in one transaction; rolls back on any error.
+      description: Applies update-only changes in one transaction with a ten-second timeout; rolls back on any error or when a key does not match exactly one row. Read-only connections and tables without InnoDB storage and a usable primary or unique key are rejected.
       parameters:
         - { $ref: "#/components/parameters/ConnId" }
         - { $ref: "#/components/parameters/Table" }
@@ -327,6 +328,9 @@ components:
         type: { type: string }
         nullable: { type: boolean }
         primaryKey: { type: boolean }
+        generated:
+          type: boolean
+          description: Generated columns are displayed but cannot be edited.
         foreignKey:
           allOf: [ { $ref: "#/components/schemas/ForeignRef" } ]
           nullable: true
@@ -429,6 +433,10 @@ components:
             type: array
             items: {}
         nextCursor: { type: string, nullable: true }
+        editKey:
+          type: array
+          description: Ordered columns of a primary or non-null unique key used to identify edited rows. Binary, temporal, prefix, and functional keys are excluded. Empty for read-only sources.
+          items: { type: string }
         editable: { type: boolean }
         totalRows: { type: integer, format: int64 }
         readOnlyReason: { type: string, nullable: true }
@@ -443,7 +451,7 @@ components:
           additionalProperties: {}
         values:
           type: object
-          description: Column to new value (insert and update).
+          description: Column to new value (insert and update). For updates, include only modified columns. Primary key columns cannot be updated.
           additionalProperties: {}
     ChangeSet:
       type: object
@@ -457,6 +465,12 @@ components:
       required: [statements, warnings]
       properties:
         statements: { type: array, items: { type: string } }
+        parameters:
+          type: array
+          description: Bound parameter values for each statement, in placeholder order.
+          items:
+            type: array
+            items: {}
         warnings: { type: array, items: { type: string } }
     ApplyResult:
       type: object

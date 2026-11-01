@@ -178,3 +178,20 @@ func TestMySQLRowsOrdering(t *testing.T) {
 		})
 	}
 }
+
+func TestJSONRowValueLargeIntegerKeys(t *testing.T) {
+	for _, tc := range []struct {
+		value any
+		want  any
+	}{
+		{int64(9007199254740991), int64(9007199254740991)},
+		{int64(9007199254740992), "9007199254740992"},
+		{int64(9007199254740993), "9007199254740993"},
+		{int64(-9007199254740992), "-9007199254740992"},
+		{uint64(18446744073709551615), "18446744073709551615"},
+	} {
+		if got := JSONRowValue(tc.value); got != tc.want {
+			t.Fatalf("%v => %v, want %v", tc.value, got, tc.want)
+		}
+	}
+}
