@@ -64,7 +64,7 @@
 </section>
 
 <style>
-  .table-metadata { flex: 1; min-height: 0; overflow: auto; margin-top: 14px; padding: 24px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
+  .table-metadata { flex: 1; min-height: 0; overflow: auto; margin-top: 14px; padding: 24px; border: 1px solid var(--line); border-bottom: 0; border-radius: 9px 9px 0 0; background: var(--surface); }
   header { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; }
   h1 { margin: 0; overflow-wrap: anywhere; font-size: 22px; }
   header > span, .estimate-note, p { color: var(--muted); font-size: 13px; line-height: 1.6; }
