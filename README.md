@@ -104,3 +104,8 @@ The web app is available only from your own computer by default. Docker mounts `
 - [Architecture](docs/architecture.md)
 - [Design guidance](docs/design/README.md)
 - [Contributor instructions](AGENTS.md)
+
+Click a column heading in the Data grid to sort all rows on the server. Click again to
+reverse the direction. Sorting returns to page one and persists across pagination
+and page-size changes; selecting another table or view resets it. MySQL determines
+NULL ordering and text collation. Primary keys break ties when available.

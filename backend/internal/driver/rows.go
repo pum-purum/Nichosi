@@ -8,6 +8,12 @@ import (
 	"strings"
 )
 
+var ErrInvalidOrder = errors.New("invalid row ordering")
+
+type RowOrder struct {
+	Column, Direction string
+}
+
 var ErrRowsObjectNotFound = errors.New("row source not found")
 
 type RowColumn struct {
@@ -28,7 +34,7 @@ func (e *RowError) Error() string { return e.Err.Error() }
 func (e *RowError) Unwrap() error { return e.Err }
 
 // MySQLRows reads a bounded page from exactly the requested object kind.
-func MySQLRows(ctx context.Context, db *sql.DB, database, name string, view bool, limit, offset int) (RowPage, error) {
+func MySQLRows(ctx context.Context, db *sql.DB, database, name string, view bool, limit, offset int, orderBy ...RowOrder) (RowPage, error) {
 	page := RowPage{Columns: []RowColumn{}, Rows: [][]any{}}
 	kind := "BASE TABLE"
 	if view {
@@ -76,6 +82,43 @@ func MySQLRows(ctx context.Context, db *sql.DB, database, name string, view bool
 	if err := cols.Close(); err != nil {
 		return page, &RowError{"metadata_failed", err}
 	}
+	ordering := []string{}
+	ordered := map[string]bool{}
+	for _, order := range orderBy {
+		found := false
+		for _, column := range page.Columns {
+			if column.Name == order.Column {
+				found = true
+				break
+			}
+		}
+		direction := "ASC"
+		switch order.Direction {
+		case "", "asc":
+		case "desc":
+			direction = "DESC"
+		default:
+			return page, ErrInvalidOrder
+		}
+		if !found || ordered[order.Column] {
+			return page, ErrInvalidOrder
+		}
+		ordered[order.Column] = true
+		ordering = append(ordering, QuoteIdent(order.Column)+" "+direction)
+	}
+	// Primary keys break ties so sorted pages remain stable.
+	if len(ordering) > 0 {
+		for _, column := range page.Columns {
+			if column.PrimaryKey && !ordered[column.Name] {
+				ordering = append(ordering, QuoteIdent(column.Name)+" ASC")
+			}
+		}
+	}
+	orderSQL := ""
+	if len(ordering) > 0 {
+		orderSQL = " ORDER BY " + strings.Join(ordering, ",")
+	}
+
 	source := QuoteIdent(database) + "." + QuoteIdent(name)
 	if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+source).Scan(&page.TotalRows); err != nil {
 		return page, &RowError{"count_failed", err}
@@ -83,7 +126,7 @@ func MySQLRows(ctx context.Context, db *sql.DB, database, name string, view bool
 	if len(names) == 0 {
 		return page, nil
 	}
-	rows, err := db.QueryContext(ctx, "SELECT "+strings.Join(names, ",")+" FROM "+source+" LIMIT ? OFFSET ?", limit, offset)
+	rows, err := db.QueryContext(ctx, "SELECT "+strings.Join(names, ",")+" FROM "+source+orderSQL+" LIMIT ? OFFSET ?", limit, offset)
 	if err != nil {
 		return page, &RowError{"query_failed", err}
 	}

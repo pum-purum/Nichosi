@@ -142,3 +142,39 @@ func TestMySQLViewMetadata(t *testing.T) {
 		})
 	}
 }
+
+func TestMySQLRowsOrdering(t *testing.T) {
+	for _, tc := range []struct {
+		name, column, direction, clause string
+		invalid                         bool
+	}{
+		{"ascending default", "col" + "`" + "name", "", " ORDER BY `col``name` ASC", false},
+		{"descending", "col" + "`" + "name", "desc", " ORDER BY `col``name` DESC", false},
+		{"unknown column", "missing", "asc", "", true},
+		{"column injection", "id; DROP TABLE t", "asc", "", true},
+		{"direction injection", "col" + "`" + "name", "DESC; DROP TABLE t", "", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			connector := &rowSourceConnector{sourceKind: "BASE TABLE"}
+			db := sql.OpenDB(connector)
+			defer db.Close()
+			_, err := MySQLRows(context.Background(), db, "db", "t", false, 25, 50, RowOrder{Column: tc.column, Direction: tc.direction})
+			if tc.invalid {
+				if !errors.Is(err, ErrInvalidOrder) {
+					t.Fatalf("expected invalid ordering, got %v", err)
+				}
+				if len(connector.queries) != 2 {
+					t.Fatal("invalid order must fail before reading data")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			query := connector.queries[len(connector.queries)-1]
+			if !strings.Contains(query, tc.clause+" LIMIT ? OFFSET ?") {
+				t.Fatalf("unexpected query: %s", query)
+			}
+		})
+	}
+}

@@ -343,7 +343,21 @@ func (a *app) queryObjectRows(w http.ResponseWriter, r *http.Request, view bool)
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
-	result, err := driver.MySQLRows(ctx, item.pool, item.Database, name, view, limit, offset)
+	ordering := []driver.RowOrder{}
+	if query.OrderBy != nil {
+		for _, order := range *query.OrderBy {
+			direction := ""
+			if order.Direction != nil {
+				direction = string(*order.Direction)
+			}
+			ordering = append(ordering, driver.RowOrder{Column: order.Column, Direction: direction})
+		}
+	}
+	result, err := driver.MySQLRows(ctx, item.pool, item.Database, name, view, limit, offset, ordering...)
+	if errors.Is(err, driver.ErrInvalidOrder) {
+		writeError(w, http.StatusBadRequest, "invalid_order", "Invalid sort column or direction")
+		return
+	}
 	if errors.Is(err, driver.ErrRowsObjectNotFound) {
 		writeError(w, 404, kind+"_not_found", "Requested "+kind+" not found")
 		return
