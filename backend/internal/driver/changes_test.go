@@ -281,3 +281,29 @@ func TestApplyDeleteAtomicity(t *testing.T) {
 		})
 	}
 }
+
+func TestIntegerPreviewParameters(t *testing.T) {
+	for _, tc := range []struct {
+		name, columnType string
+		input, want      any
+	}{
+		{"JSON bigint", "bigint", json.Number("1"), int64(1)},
+		{"text bigint", "bigint", "1", int64(1)},
+		{"negative integer", "int", "-42", int64(-42)},
+		{"safe boundary", "bigint", "9007199254740991", int64(9007199254740991)},
+		{"large bigint", "bigint", "9007199254740993", "9007199254740993"},
+		{"unsigned bigint", "bigint", "18446744073709551615", "18446744073709551615"},
+		{"text identifier", "varchar", "001", "001"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			metadata := EditMetadata{Columns: map[string]EditColumn{"id": {Type: tc.columnType}, "value": {Type: tc.columnType}}, Key: []string{"id"}}
+			statements, err := BuildUpdates("db", "table", metadata, []RowChange{{Op: "update", Key: map[string]any{"id": tc.input}, Values: map[string]any{"value": tc.input}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(statements[0].Parameters, []any{tc.want, tc.want}) {
+				t.Fatalf("parameters: %#v", statements[0].Parameters)
+			}
+		})
+	}
+}

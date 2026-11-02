@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -115,7 +116,22 @@ func MySQLEditMetadata(ctx context.Context, db *sql.DB, database, table string) 
 	return m, nil
 }
 
-func changeValue(value any) (any, error) {
+func changeValue(value any, column EditColumn) (any, error) {
+	// Preserve exact transport for integers outside JavaScript's safe range.
+	switch strings.ToLower(column.Type) {
+	case "tinyint", "smallint", "mediumint", "int", "integer", "bigint", "year":
+		var text string
+		switch v := value.(type) {
+		case string:
+			text = v
+		case json.Number:
+			text = string(v)
+		}
+		if n, err := strconv.ParseInt(text, 10, 64); err == nil && n >= -9007199254740991 && n <= 9007199254740991 {
+			return n, nil
+		}
+	}
+
 	switch v := value.(type) {
 	case nil, string, bool, float64, int64:
 		return v, nil
@@ -151,7 +167,7 @@ func BuildUpdates(database, table string, metadata EditMetadata, changes []RowCh
 			if !ok || column.Generated || column.PrimaryKey || (change.Values[name] == nil && !column.Nullable) {
 				return nil, ErrInvalidChange
 			}
-			value, err := changeValue(change.Values[name])
+			value, err := changeValue(change.Values[name], column)
 			if err != nil {
 				return nil, err
 			}
@@ -163,7 +179,7 @@ func BuildUpdates(database, table string, metadata EditMetadata, changes []RowCh
 			if !ok || value == nil {
 				return nil, ErrInvalidChange
 			}
-			value, err := changeValue(value)
+			value, err := changeValue(value, metadata.Columns[name])
 			if err != nil {
 				return nil, err
 			}

@@ -45,7 +45,7 @@ parameterized SQL only; row limit and timeout on every UI query; audit log of wr
 
 The row pencil opens a record editor. Changes are accumulated in a Svelte ChangeSet
 store; restoring a field to its original value removes it from the update. SQL NULL
-is an explicit choice distinct from an empty string. Numeric text retains precision.
+is an explicit choice distinct from an empty string. Numeric text retains precision. SQL preview parameters for integer columns use numbers within JavaScript’s safe integer range; larger integers remain strings to preserve every digit.
 The original primary key (or a complete non-null unique key) identifies the row throughout editing. Primary key columns are read-only in the form and rejected
 by the backend when included in update values. Tables without a usable key and read-only connections
 cannot be edited; views always remain read-only. Updates currently require InnoDB
