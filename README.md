@@ -88,6 +88,10 @@ The Compose configuration enables local preview, binds the published port to
 own computer. To run the backend directly with saved profiles, use
 `NICHOSI_CONNECTIONS_FILE="$PWD/connections.json" make run`.
 
+Use **Refresh** above the data grid to reload the current table or view without
+reloading the browser page. The selected connection, current page, applied filters,
+and sorting are preserved.
+
 ## Table information
 
 Use **Table info** at the bottom of the table workspace to inspect storage details,

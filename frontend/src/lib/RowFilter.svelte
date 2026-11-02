@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { Plus, SlidersHorizontal, X } from '@lucide/svelte';
+  import { Plus, RefreshCw, SlidersHorizontal, X } from '@lucide/svelte';
   import { filterOperators, formatRowFilter, parseRowFilter, type RowFilter } from './row-filter';
-  let { columns, busy, apply, text = $bindable(''), appliedText = $bindable('') }: { columns: string[]; busy: boolean; apply: (filters: RowFilter[]) => void; text?: string; appliedText?: string } = $props();
+  let { columns, busy, apply, refresh, text = $bindable(''), appliedText = $bindable('') }: { columns: string[]; busy: boolean; apply: (filters: RowFilter[]) => void; refresh: () => void; text?: string; appliedText?: string } = $props();
   let expanded = $state(false);
   const parsed = $derived.by(() => {
     try { return { filters: parseRowFilter(text, columns), error: '' }; }
@@ -26,6 +26,7 @@
 
 <form class="row-filter" onsubmit={(event) => { event.preventDefault(); submit(); }}>
   <div class="row-filter-bar">
+    <button type="button" aria-label="Refresh data" title="Refresh data" disabled={busy} onclick={refresh}><RefreshCw size={15} /><span>Refresh</span></button>
     <button type="button" class:active={expanded} aria-expanded={expanded} title="Show filter builder" onclick={() => expanded = !expanded}><SlidersHorizontal size={15} /><span>Filter</span></button>
     <input class="filter-expression" aria-label="Row filter expression" aria-invalid={!!parsed.error} aria-describedby="row-filter-help row-filter-error" placeholder={'Choose conditions or type: `id` >= 10 OR `name` LIKE "Ann%"'} bind:value={text} spellcheck="false" autocomplete="off" />
     <button type="submit" class="filter-apply" disabled={busy || !!parsed.error || !columns.length}>Apply{text !== appliedText ? ' •' : ''}</button>
