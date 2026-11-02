@@ -369,8 +369,15 @@ export interface components {
         Filter: {
             column: string;
             /** @enum {string} */
-            op: "eq" | "ne" | "lt" | "lte" | "gt" | "gte" | "like" | "in" | "isNull" | "notNull";
+            op: "eq" | "ne" | "lt" | "lte" | "gt" | "gte" | "like" | "in" | "between" | "isNull" | "notNull";
+            /** @description String, number, or boolean for comparisons (LIKE requires a string); a nonempty array of up to 1000 scalars for IN, or exactly two scalars for BETWEEN. Null checks require no value. Objects and null comparison values are rejected. */
             value?: unknown;
+            /**
+             * @description Joins this condition to the preceding condition; ignored on the first condition. AND binds more tightly than OR.
+             * @default and
+             * @enum {string}
+             */
+            connector: "and" | "or";
         };
         OrderBy: {
             column: string;
@@ -381,6 +388,7 @@ export interface components {
             direction: "asc" | "desc";
         };
         RowsQuery: {
+            /** @description Structured conditions; AND binds more tightly than OR. Applied to both rows and totalRows. */
             filters?: components["schemas"]["Filter"][];
             orderBy?: components["schemas"]["OrderBy"][];
             cursor?: string | null;

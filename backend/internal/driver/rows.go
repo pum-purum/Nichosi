@@ -36,6 +36,11 @@ func (e *RowError) Unwrap() error { return e.Err }
 
 // MySQLRows reads a bounded page from exactly the requested object kind.
 func MySQLRows(ctx context.Context, db *sql.DB, database, name string, view bool, limit, offset int, orderBy ...RowOrder) (RowPage, error) {
+	return MySQLFilteredRows(ctx, db, database, name, view, limit, offset, nil, orderBy...)
+}
+
+// MySQLFilteredRows applies the same structured predicates to the count and page.
+func MySQLFilteredRows(ctx context.Context, db *sql.DB, database, name string, view bool, limit, offset int, filters []RowFilter, orderBy ...RowOrder) (RowPage, error) {
 	page := RowPage{Columns: []RowColumn{}, Rows: [][]any{}}
 	kind := "BASE TABLE"
 	if view {
@@ -120,14 +125,19 @@ func MySQLRows(ctx context.Context, db *sql.DB, database, name string, view bool
 		orderSQL = " ORDER BY " + strings.Join(ordering, ",")
 	}
 
+	whereSQL, filterArgs, err := mysqlRowFilters(page.Columns, filters)
+	if err != nil {
+		return page, err
+	}
 	source := QuoteIdent(database) + "." + QuoteIdent(name)
-	if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+source).Scan(&page.TotalRows); err != nil {
+	if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+source+whereSQL, filterArgs...).Scan(&page.TotalRows); err != nil {
 		return page, &RowError{"count_failed", err}
 	}
 	if len(names) == 0 {
 		return page, nil
 	}
-	rows, err := db.QueryContext(ctx, "SELECT "+strings.Join(names, ",")+" FROM "+source+orderSQL+" LIMIT ? OFFSET ?", limit, offset)
+	args := append(append([]any{}, filterArgs...), limit, offset)
+	rows, err := db.QueryContext(ctx, "SELECT "+strings.Join(names, ",")+" FROM "+source+whereSQL+orderSQL+" LIMIT ? OFFSET ?", args...)
 	if err != nil {
 		return page, &RowError{"query_failed", err}
 	}

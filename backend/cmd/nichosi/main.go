@@ -323,7 +323,9 @@ func (a *app) queryObjectRows(w http.ResponseWriter, r *http.Request, view bool)
 	}
 	var query RowsQuery
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-	if err := json.NewDecoder(r.Body).Decode(&query); err != nil && !errors.Is(err, io.EOF) {
+	decoder := json.NewDecoder(r.Body)
+	decoder.UseNumber()
+	if err := decoder.Decode(&query); err != nil && !errors.Is(err, io.EOF) {
 		writeError(w, 400, "invalid_request", "Invalid row query")
 		return
 	}
@@ -353,7 +355,25 @@ func (a *app) queryObjectRows(w http.ResponseWriter, r *http.Request, view bool)
 			ordering = append(ordering, driver.RowOrder{Column: order.Column, Direction: direction})
 		}
 	}
-	result, err := driver.MySQLRows(ctx, item.pool, item.Database, name, view, limit, offset, ordering...)
+	filters := []driver.RowFilter{}
+	if query.Filters != nil {
+		for _, filter := range *query.Filters {
+			connector := ""
+			if filter.Connector != nil {
+				connector = string(*filter.Connector)
+			}
+			var value any
+			if filter.Value != nil {
+				value = *filter.Value
+			}
+			filters = append(filters, driver.RowFilter{Column: filter.Column, Op: string(filter.Op), Connector: connector, Value: value})
+		}
+	}
+	result, err := driver.MySQLFilteredRows(ctx, item.pool, item.Database, name, view, limit, offset, filters, ordering...)
+	if errors.Is(err, driver.ErrInvalidFilter) {
+		writeError(w, http.StatusBadRequest, "invalid_filter", "Invalid filter column, operator, connector or value")
+		return
+	}
 	if errors.Is(err, driver.ErrInvalidOrder) {
 		writeError(w, http.StatusBadRequest, "invalid_order", "Invalid sort column or direction")
 		return
@@ -371,6 +391,8 @@ func (a *app) queryObjectRows(w http.ResponseWriter, r *http.Request, view bool)
 		message := err.Error()
 		if view {
 			message = "Could not read view rows"
+		} else if len(filters) > 0 {
+			message = "Could not read filtered table rows"
 		}
 		writeError(w, 502, code, message)
 		return

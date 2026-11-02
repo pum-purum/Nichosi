@@ -399,8 +399,14 @@ components:
       required: [column, op]
       properties:
         column: { type: string }
-        op: { type: string, enum: [eq, ne, lt, lte, gt, gte, like, in, isNull, notNull] }
-        value: {}
+        op: { type: string, enum: [eq, ne, lt, lte, gt, gte, like, in, between, isNull, notNull] }
+        value:
+          description: String, number, or boolean for comparisons (LIKE requires a string); a nonempty array of up to 1000 scalars for IN, or exactly two scalars for BETWEEN. Null checks require no value. Objects and null comparison values are rejected.
+        connector:
+          type: string
+          enum: [and, or]
+          default: and
+          description: Joins this condition to the preceding condition; ignored on the first condition. AND binds more tightly than OR.
     OrderBy:
       type: object
       required: [column]
@@ -411,6 +417,8 @@ components:
       type: object
       properties:
         filters:
+          description: Structured conditions; AND binds more tightly than OR. Applied to both rows and totalRows.
+          maxItems: 100
           type: array
           items: { $ref: "#/components/schemas/Filter" }
         orderBy:

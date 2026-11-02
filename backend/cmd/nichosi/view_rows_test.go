@@ -48,8 +48,8 @@ func (c *viewRowsConn) QueryContext(ctx context.Context, q string, args []driver
 	case strings.HasPrefix(q, "SELECT COUNT(*)"):
 		return &viewTestRows{columns: []string{"COUNT(*)"}, values: []driver.Value{int64(3)}}, nil
 	default:
-		c.c.limit = args[0].Value.(int64)
-		c.c.offset = args[1].Value.(int64)
+		c.c.limit = args[len(args)-2].Value.(int64)
+		c.c.offset = args[len(args)-1].Value.(int64)
 		return &viewTestRows{columns: []string{"id"}, values: []driver.Value{int64(2)}}, nil
 	}
 }

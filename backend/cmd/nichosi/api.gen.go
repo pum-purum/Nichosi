@@ -43,8 +43,15 @@ const (
 	DatabaseObjectTypeView      DatabaseObjectType = "view"
 )
 
+// Defines values for FilterConnector.
+const (
+	And FilterConnector = "and"
+	Or  FilterConnector = "or"
+)
+
 // Defines values for FilterOp.
 const (
+	Between FilterOp = "between"
 	Eq      FilterOp = "eq"
 	Gt      FilterOp = "gt"
 	Gte     FilterOp = "gte"
@@ -203,10 +210,18 @@ type Error struct {
 
 // Filter defines model for Filter.
 type Filter struct {
-	Column string       `json:"column"`
-	Op     FilterOp     `json:"op"`
-	Value  *interface{} `json:"value,omitempty"`
+	Column string `json:"column"`
+
+	// Connector Joins this condition to the preceding condition; ignored on the first condition. AND binds more tightly than OR.
+	Connector *FilterConnector `json:"connector,omitempty"`
+	Op        FilterOp         `json:"op"`
+
+	// Value String, number, or boolean for comparisons (LIKE requires a string); a nonempty array of up to 1000 scalars for IN, or exactly two scalars for BETWEEN. Null checks require no value. Objects and null comparison values are rejected.
+	Value *interface{} `json:"value,omitempty"`
 }
+
+// FilterConnector Joins this condition to the preceding condition; ignored on the first condition. AND binds more tightly than OR.
+type FilterConnector string
 
 // FilterOp defines model for Filter.Op.
 type FilterOp string
@@ -274,7 +289,9 @@ type RowsPage struct {
 
 // RowsQuery defines model for RowsQuery.
 type RowsQuery struct {
-	Cursor  *string    `json:"cursor"`
+	Cursor *string `json:"cursor"`
+
+	// Filters Structured conditions; AND binds more tightly than OR. Applied to both rows and totalRows.
 	Filters *[]Filter  `json:"filters,omitempty"`
 	Limit   *int       `json:"limit,omitempty"`
 	Offset  *int       `json:"offset,omitempty"`

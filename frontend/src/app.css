@@ -354,3 +354,23 @@ kbd { flex: 0 0 auto; padding: 2px 4px; border: 1px solid #303930; border-radius
 .clear-object-filter:hover { color: var(--text); background: var(--surface-raised); }
 
 .column-sort { display: block; width: 100%; padding: 0; border: 0; background: transparent; text-align: left; font: inherit; cursor: pointer; }
+
+.row-filter { flex: none; margin-bottom: 10px; padding: 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.row-filter-bar { display: flex; gap: 7px; align-items: center; }
+.row-filter button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface-raised); font-size: 12px; cursor: pointer; white-space: nowrap; }
+.row-filter button:hover:not(:disabled) { border-color: var(--accent); }
+.row-filter button:disabled { opacity: .45; cursor: default; }
+.row-filter button.active, .row-filter .filter-apply { color: var(--accent); }
+.row-filter input, .row-filter select { min-width: 0; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--text); font-size: 12px; }
+.row-filter .filter-expression { flex: 1; width: 100%; font-family: var(--mono); }
+.filter-builder { display: flex; flex-direction: column; gap: 7px; padding-top: 10px; max-height: 260px; overflow: auto; }
+.filter-condition { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
+.filter-condition > input { flex: 1; min-width: 100px; }
+.filter-condition .filter-column { width: 180px; }
+.filter-where { min-width: 65px; color: var(--muted); font: 11px var(--mono); }
+.filter-condition > span { color: var(--muted); font-size: 11px; }
+.filter-in-values, .filter-in-values > div, .filter-builder-actions { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+.filter-in-values { flex: 1; }
+.filter-in-values input { width: 120px; }
+.filter-help, .filter-error { margin: 8px 0 0; font-size: 12px; line-height: 1.5; color: var(--muted); }
+.filter-error { color: #f59d9d; }
