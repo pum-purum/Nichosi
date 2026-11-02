@@ -43,6 +43,7 @@ parameterized SQL only; row limit and timeout on every UI query; audit log of wr
 
 ## Record editing
 
+The pencil and trash buttons show the record’s primary key in their tooltips and accessible labels (or the editing unique key when no primary key exists). Composite keys include every key column.
 The row pencil opens a record editor. Changes are accumulated in a Svelte ChangeSet
 store; restoring a field to its original value removes it from the update. SQL NULL
 is an explicit choice distinct from an empty string. Numeric text retains precision. SQL preview parameters for integer columns use numbers within JavaScript’s safe integer range; larger integers remain strings to preserve every digit.
