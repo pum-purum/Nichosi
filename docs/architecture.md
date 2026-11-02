@@ -25,6 +25,7 @@ type Driver interface {
 ```
 
 ## Features
+- Browser title: `<database> · Nichosi` for the selected database; `Databases · Nichosi` on the connections screen.
 - Connections: profiles, explicit readonly boolean (true by default), SSH tunnel, TLS, cancel query.
 - Editing: virtualized grid, keyset pagination, ChangeSet (preview SQL, one transaction), primary or non-null unique key editing.
 - Relations: real FKs, inferred links by naming plus data check (orphan ratio), manual links; graph depth 1-3.

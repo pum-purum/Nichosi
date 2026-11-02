@@ -357,7 +357,7 @@
   </div>
 {/snippet}
 
-<svelte:head><title>Databases · Nichosi</title></svelte:head>
+<svelte:head><title>{selectedConnection?.database || 'Databases'} · Nichosi</title></svelte:head>
 
 <div class="app-shell">
   <main class:has-connections={connections.length > 0} class:database-open={selectedConnection !== null}>
