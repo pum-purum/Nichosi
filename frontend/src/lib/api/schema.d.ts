@@ -59,7 +59,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Fetch the full current CREATE statement for one schema object on demand with a ten-second timeout. Account definitions are provided only through safe schema metadata. */
+        /** @description Fetch a SQL definition or explicit availability metadata for one schema object on demand with a ten-second timeout. Reconstructed definitions are identified in details. Account definitions are provided only through safe schema metadata. */
         get: operations["getObjectDefinition"];
         put?: never;
         post?: never;
@@ -334,6 +334,10 @@ export interface components {
             warnings: string[];
         };
         TableInfo: {
+            /** @description Raw PostgreSQL schema name for grouping. Omitted for other drivers and objects outside schema navigation. */
+            schemaName?: string;
+            /** @description Short display label within a schema group; retains routine identity arguments and trigger table context. The name field remains the full opaque API identifier. */
+            displayName?: string;
             name: string;
             /** Format: int64 */
             rowsEstimate: number;
@@ -360,11 +364,15 @@ export interface components {
         /** @enum {string} */
         ObjectType: "table" | "view" | "materialized_view" | "trigger" | "procedure" | "function" | "event" | "role" | "user" | "schema" | "sequence" | "type" | "extension" | "index" | "cron";
         DatabaseObject: {
+            /** @description Raw PostgreSQL schema name for grouping. Omitted for other drivers and objects outside schema navigation. */
+            schemaName?: string;
+            /** @description Short display label within a schema group; retains routine identity arguments and trigger table context. The name field remains the full opaque API identifier. */
+            displayName?: string;
             name: string;
             type: components["schemas"]["ObjectType"];
-            /** @description Complete server-reported CREATE statement for schema objects, fetched through getObjectDefinition and omitted from schema listings, when visible to the current account. Empty when unavailable; details explains why. For roles, a reconstructed CREATE ROLE statement only; grants and original creation history are not included. User authentication data is never requested or returned. */
+            /** @description SQL definition fetched through getObjectDefinition when visible to the current account. Empty when unavailable; details explains why and identifies reconstructed statements. For roles, a reconstructed CREATE ROLE statement only; grants and original creation history are not included. User authentication data is never requested or returned. */
             definition?: string;
-            /** @description Read-only object metadata. Accounts are server-wide and include their host. Account category is internal for the known mysql.infoschema/mysql.session/mysql.sys accounts at localhost, default-admin for root at localhost, and other otherwise. This name-based recognition is not creation provenance, a privilege check, or the MySQL SYSTEM_USER category. */
+            /** @description Read-only object metadata. Accounts are server-wide and include their host. Account category is internal for the known mysql.infoschema/mysql.session/mysql.sys accounts at localhost, default-admin for root at localhost, and other otherwise. This name-based recognition is not creation provenance, a privilege check, or the MySQL SYSTEM_USER category. PostgreSQL schema objects include Owner, effective current-account USAGE and CREATE permissions, and bounded explicit ACL metadata with availability notes. */
             details?: {
                 [key: string]: string;
             };

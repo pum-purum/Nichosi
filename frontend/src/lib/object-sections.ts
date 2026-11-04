@@ -22,7 +22,7 @@ export function postgresAccountBadge(object: components['schemas']['DatabaseObje
 export function objectSectionsFor(types: readonly ObjectType[], driver?: Driver) {
   const groupedTypes = types.map(type => objectSectionType(type, driver));
   return (Object.keys(objectSectionLabels) as ObjectType[])
-    .filter(type => groupedTypes.includes(type))
+    .filter(type => groupedTypes.includes(type) && !(driver === 'postgres' && type === 'schema'))
     .map(type => ({ type, label: objectSectionLabels[type] }));
 }
 

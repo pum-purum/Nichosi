@@ -203,13 +203,19 @@ type ConnectionInputDriver string
 
 // DatabaseObject defines model for DatabaseObject.
 type DatabaseObject struct {
-	// Definition Complete server-reported CREATE statement for schema objects, fetched through getObjectDefinition and omitted from schema listings, when visible to the current account. Empty when unavailable; details explains why. For roles, a reconstructed CREATE ROLE statement only; grants and original creation history are not included. User authentication data is never requested or returned.
+	// Definition SQL definition fetched through getObjectDefinition when visible to the current account. Empty when unavailable; details explains why and identifies reconstructed statements. For roles, a reconstructed CREATE ROLE statement only; grants and original creation history are not included. User authentication data is never requested or returned.
 	Definition *string `json:"definition,omitempty"`
 
-	// Details Read-only object metadata. Accounts are server-wide and include their host. Account category is internal for the known mysql.infoschema/mysql.session/mysql.sys accounts at localhost, default-admin for root at localhost, and other otherwise. This name-based recognition is not creation provenance, a privilege check, or the MySQL SYSTEM_USER category.
+	// Details Read-only object metadata. Accounts are server-wide and include their host. Account category is internal for the known mysql.infoschema/mysql.session/mysql.sys accounts at localhost, default-admin for root at localhost, and other otherwise. This name-based recognition is not creation provenance, a privilege check, or the MySQL SYSTEM_USER category. PostgreSQL schema objects include Owner, effective current-account USAGE and CREATE permissions, and bounded explicit ACL metadata with availability notes.
 	Details *map[string]string `json:"details,omitempty"`
-	Name    string             `json:"name"`
-	Type    ObjectType         `json:"type"`
+
+	// DisplayName Short display label within a schema group; retains routine identity arguments and trigger table context. The name field remains the full opaque API identifier.
+	DisplayName *string `json:"displayName,omitempty"`
+	Name        string  `json:"name"`
+
+	// SchemaName Raw PostgreSQL schema name for grouping. Omitted for other drivers and objects outside schema navigation.
+	SchemaName *string    `json:"schemaName,omitempty"`
+	Type       ObjectType `json:"type"`
 }
 
 // Error defines model for Error.
@@ -332,10 +338,16 @@ type TableInfo struct {
 	// DataBytes Estimated table data size in bytes
 	DataBytes int64 `json:"dataBytes"`
 
+	// DisplayName Short display label within a schema group; retains routine identity arguments and trigger table context. The name field remains the full opaque API identifier.
+	DisplayName *string `json:"displayName,omitempty"`
+
 	// IndexBytes Estimated table index size in bytes
 	IndexBytes   int64  `json:"indexBytes"`
 	Name         string `json:"name"`
 	RowsEstimate int64  `json:"rowsEstimate"`
+
+	// SchemaName Raw PostgreSQL schema name for grouping. Omitted for other drivers and objects outside schema navigation.
+	SchemaName *string `json:"schemaName,omitempty"`
 }
 
 // TableMetadata defines model for TableMetadata.

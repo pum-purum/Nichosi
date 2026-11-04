@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Clock, ShieldCheck, UserRound, Database, HardDrive, KeyRound, Pencil, Search, Server, TableProperties, Trash2, Unplug, X } from '@lucide/svelte';
+  import { ChevronDown, ChevronRight, FolderTree, Settings2, ArrowLeft, Clock, ShieldCheck, UserRound, Database, HardDrive, KeyRound, Pencil, Search, Server, TableProperties, Trash2, Unplug, X } from '@lucide/svelte';
   import { onMount } from 'svelte';
   import DeleteRecordDialog from './lib/DeleteRecordDialog.svelte';
   import RecordEditor from './lib/RecordEditor.svelte';
@@ -11,6 +11,7 @@
   import RowFilter from './lib/RowFilter.svelte';
   import ObjectIcon from './lib/ObjectIcon.svelte';
   import { isViewType, objectSectionsFor, objectSectionType, postgresAccountBadge, type ObjectType } from './lib/object-sections';
+  import { groupSchemaEntries, matchesSchemaEntry, schemaGroupedTypes, schemaGroupKey, schemaGroupOpen } from './lib/schema-groups';
   import { matchesObjectFilter } from './lib/object-filter';
   import { recoveryConnection } from './lib/connection-recovery';
   import type { components } from './lib/api/schema';
@@ -39,8 +40,40 @@
   let metadataWarnings = $state<string[]>([]);
   let objects = $state<components['schemas']['DatabaseObject'][]>([]);
   let filterInput = $state<HTMLInputElement>();
-  const filteredTables = $derived(tables.filter(table => matchesObjectFilter(tableSearch, table.name)));
-  const filteredObjects = $derived(objects.filter(object => objectSectionType(object.type, selectedConnection?.driver) === activeObjectType && matchesObjectFilter(tableSearch, objectDisplayName(object), object.name)));
+  let collapsedSchemas = $state<Record<string, boolean>>({});
+  let schemaProperties = $state<DatabaseObject | null>(null);
+  let schemaPropertiesLoading = $state(false);
+  let schemaPropertiesError = $state('');
+  let schemaPropertiesRequestId = 0;
+  const groupedSidebar = $derived(selectedConnection?.driver === 'postgres' && schemaGroupedTypes.includes(activeObjectType));
+  const categoryObjects = $derived(objects.filter(object => objectSectionType(object.type, selectedConnection?.driver) === activeObjectType));
+  const sidebarSchemaGroups = $derived(groupSchemaEntries<TableInfo | DatabaseObject>(activeObjectType === 'table' ? tables : categoryObjects, objects, tableSearch));
+  function closeSchemaProperties() {
+    schemaPropertiesRequestId++;
+    schemaProperties = null; schemaPropertiesLoading = false; schemaPropertiesError = '';
+  }
+  function toggleSchema(schemaName: string) {
+    const key = schemaGroupKey(activeObjectType, schemaName);
+    collapsedSchemas = { ...collapsedSchemas, [key]: !collapsedSchemas[key] };
+  }
+  async function openSchemaProperties(schema: DatabaseObject) {
+    const connectionId = selectedConnection?.id;
+    if (!connectionId) return;
+    editingRow = null;
+    const requestId = ++schemaPropertiesRequestId;
+    schemaProperties = schema; schemaPropertiesLoading = true; schemaPropertiesError = '';
+    try {
+      const query = new URLSearchParams({ type: 'schema', name: schema.name });
+      const result = await request<DatabaseObject>(`/api/connections/${encodeURIComponent(connectionId)}/object-definition?${query}`);
+      if (requestId === schemaPropertiesRequestId && selectedConnection?.id === connectionId) schemaProperties = { ...schema, ...result, details: { ...schema.details, ...result.details } };
+    } catch (cause) {
+      if (requestId === schemaPropertiesRequestId && selectedConnection?.id === connectionId) schemaPropertiesError = cause instanceof Error ? cause.message : 'Could not load schema properties';
+    } finally {
+      if (requestId === schemaPropertiesRequestId) schemaPropertiesLoading = false;
+    }
+  }
+  const filteredTables = $derived(tables.filter(table => matchesSchemaEntry(tableSearch, table)));
+  const filteredObjects = $derived(objects.filter(object => objectSectionType(object.type, selectedConnection?.driver) === activeObjectType && matchesObjectFilter(tableSearch, objectDisplayName(object), object.name, object.schemaName ?? '')));
   const filteredCount = $derived(activeObjectType === 'table' ? filteredTables.length : filteredObjects.length);
   const sectionLabel = $derived(objectSections.find(section => section.type === activeObjectType)?.label ?? 'Objects');
   function clearObjectFilter() { tableSearch = ''; filterInput?.focus(); }
@@ -133,6 +166,7 @@
   }
 
   async function openDatabase(connection: Connection) {
+    closeSchemaProperties(); collapsedSchemas = {};
     editingRow = null;
     const requestId = ++databaseRequestId;
     rowsRequestId += 1;
@@ -157,6 +191,7 @@
 
   async function selectTable(name: string, page = 1, control: number | 'previous' | 'next' | null = null, kind: 'table' | 'view' | 'materialized_view' = isViewType(activeObjectType) ? activeObjectType : 'table') {
     if (!selectedConnection || !name) return;
+    closeSchemaProperties();
     editingRow = null;
     const requestId = ++rowsRequestId;
     const minimumLoadingTime = new Promise<void>((resolve) => setTimeout(resolve, 200));
@@ -205,6 +240,7 @@
   }
 
   function showConnections() {
+    closeSchemaProperties(); collapsedSchemas = {};
     editingRow = null;
     databaseRequestId++;
     rowsRequestId++;
@@ -221,6 +257,7 @@
   }
 
   function selectSection(type: ObjectType) {
+    closeSchemaProperties();
     editingRow = null;
     resetRowFilters();
     orderBy = []; rowsRequestId++; rowsLoading = false; pendingPageControl = null; rowsPage = null; currentPage = 1; error = '';
@@ -239,6 +276,7 @@
   }
 
   async function selectObject(object: DatabaseObject) {
+    closeSchemaProperties();
     editingRow = null;
     const changed = selectedObject?.name !== object.name || activeObjectType !== objectSectionType(object.type, selectedConnection?.driver);
     selectedObject = object;
@@ -275,7 +313,7 @@
       const host = object.details?.['Host'];
       if (account !== undefined && host !== undefined) return `${account}@${host}`;
     }
-    return object.name;
+    return object.displayName ?? object.name;
   }
 
   function accountBadge(object: DatabaseObject) {
@@ -350,6 +388,23 @@
   </div>
 {/snippet}
 
+{#snippet sidebarTable(table: TableInfo)}
+                  <button class:active={selectedTable === table.name} class="table-nav-item table-with-size" title={table.name} aria-current={selectedTable === table.name ? 'page' : undefined} onclick={() => void selectTable(table.name)}>
+                    <TableProperties size={17} /><span>{table.displayName ?? table.name}</span><small class="table-size" title={`${formatBytes(table.dataBytes + table.indexBytes)} · ${largestTableBytes > 0 ? ((table.dataBytes + table.indexBytes) / largestTableBytes * 100).toFixed(1) : '0'}% of the largest table`}>
+                      <span>{formatBytes(table.dataBytes + table.indexBytes)}</span>
+                      <span class="table-size-track" aria-hidden="true"><span class="table-size-fill" style:width={`${largestTableBytes > 0 ? (table.dataBytes + table.indexBytes) / largestTableBytes * 100 : 0}%`}></span></span>
+                    </small>
+                  </button>
+{/snippet}
+
+{#snippet sidebarObject(object: DatabaseObject)}
+                  {@const badge = accountBadge(object)}
+                  <button class:active={selectedObject?.name === object.name} class="table-nav-item" title={object.name} aria-current={selectedObject?.name === object.name ? 'page' : undefined} onclick={() => selectObject(object)}>
+                    <ObjectIcon type={activeObjectType} size={17} /><span>{objectDisplayName(object)}</span>
+                    {#if badge}<small class="account-badge" title={badge.title}>{badge.label}</small>{/if}
+                  </button>
+{/snippet}
+
 <svelte:head><title>{selectedConnection?.database || 'Databases'} · Nichosi</title></svelte:head>
 
 <div class="app-shell">
@@ -370,25 +425,29 @@
             <div class="object-list-heading"><strong>{sectionLabel}</strong><small aria-live="polite" aria-atomic="true">{tableSearch.trim() ? `${filteredCount} / ${sectionCount(activeObjectType)}` : sectionCount(activeObjectType)}</small></div>
             <div class="table-search"><Search size={14} /><input bind:this={filterInput} type="search" bind:value={tableSearch} placeholder={`Filter ${sectionLabel.toLowerCase()}`} aria-label="Filter database objects" aria-controls="database-object-list" autocomplete="off" spellcheck="false" onkeydown={(event) => { if (event.key === 'Escape') { event.preventDefault(); clearObjectFilter(); } }} />{#if tableSearch}<button class="clear-object-filter" aria-label="Clear object filter" title="Clear filter" onclick={clearObjectFilter}><X size={14} /></button>{/if}</div>
             <nav id="database-object-list" class="table-nav" aria-label={objectSections.find((section) => section.type === activeObjectType)?.label ?? 'Database objects'}>
-              {#if activeObjectType === 'table'}
-                {#each filteredTables as table}
-                  <button class:active={selectedTable === table.name} class="table-nav-item table-with-size" aria-current={selectedTable === table.name ? 'page' : undefined} onclick={() => void selectTable(table.name)}>
-                    <TableProperties size={17} /><span>{table.name}</span><small class="table-size" title={`${formatBytes(table.dataBytes + table.indexBytes)} · ${largestTableBytes > 0 ? ((table.dataBytes + table.indexBytes) / largestTableBytes * 100).toFixed(1) : '0'}% of the largest table`}>
-                      <span>{formatBytes(table.dataBytes + table.indexBytes)}</span>
-                      <span class="table-size-track" aria-hidden="true"><span class="table-size-fill" style:width={`${largestTableBytes > 0 ? (table.dataBytes + table.indexBytes) / largestTableBytes * 100 : 0}%`}></span></span>
-                    </small>
-                  </button>
+              {#if groupedSidebar}
+                {#each sidebarSchemaGroups as group, groupIndex (group.schemaName)}
+                  {@const open = schemaGroupOpen(collapsedSchemas[schemaGroupKey(activeObjectType, group.schemaName)], tableSearch)}
+                  <section class="schema-group" aria-label={group.schemaName || 'Unspecified schema'}>
+                    <div class="schema-group-heading">
+                      <button class="schema-group-toggle" title={tableSearch.trim() ? `${group.schemaName} · Expanded for search` : group.schemaName} disabled={!!tableSearch.trim()} aria-expanded={open} aria-controls={`schema-group-${groupIndex}`} onclick={() => toggleSchema(group.schemaName)}>
+                        {#if open}<ChevronDown size={14} />{:else}<ChevronRight size={14} />{/if}<FolderTree size={15} /><span>{group.schemaName || 'Unspecified schema'}</span><small>{group.items.length}</small>
+                      </button>
+                      {#if group.schema}<button class="schema-properties-button" title={`Schema properties: ${group.schemaName}`} aria-label={`Schema properties: ${group.schemaName}`} onclick={() => group.schema && openSchemaProperties(group.schema)}><Settings2 size={14} /></button>{/if}
+                    </div>
+                    <div id={`schema-group-${groupIndex}`} class="schema-group-items" hidden={!open}>
+                      {#each group.items as item (item.name)}
+                        {#if 'dataBytes' in item}{@render sidebarTable(item)}{:else}{@render sidebarObject(item)}{/if}
+                      {:else}<p class="schema-group-empty">No {sectionLabel.toLowerCase()}.</p>{/each}
+                    </div>
+                  </section>
                 {/each}
+              {:else if activeObjectType === 'table'}
+                {#each filteredTables as table}{@render sidebarTable(table)}{/each}
               {:else}
-                {#each filteredObjects as object}
-                  {@const badge = accountBadge(object)}
-                  <button class:active={selectedObject?.name === object.name} class="table-nav-item" aria-current={selectedObject?.name === object.name ? 'page' : undefined} onclick={() => selectObject(object)}>
-                    <ObjectIcon type={activeObjectType} size={17} /><span>{objectDisplayName(object)}</span>
-                    {#if badge}<small class="account-badge" title={badge.title}>{badge.label}</small>{/if}
-                  </button>
-                {/each}
+                {#each filteredObjects as object}{@render sidebarObject(object)}{/each}
               {/if}
-              {#if filteredCount === 0 && !databaseLoading}<p class="object-list-empty" role="status">{#if tableSearch.trim()}No matching {sectionLabel.toLowerCase()}.{:else}No {sectionLabel.toLowerCase()} found.{/if}</p>{/if}
+              {#if filteredCount === 0 && !databaseLoading && (!groupedSidebar || sidebarSchemaGroups.length === 0)}<p class="object-list-empty" role="status">{#if tableSearch.trim()}No matching {sectionLabel.toLowerCase()}.{:else}No {sectionLabel.toLowerCase()} found.{/if}</p>{/if}
             </nav>
           </div>
           <div class="sidebar-footer">
@@ -399,7 +458,17 @@
         </aside>
 
         <div class="workspace-main">
-        {#if editingRow && rowsPage && selectedConnection}
+        {#if schemaProperties}
+          <section class="object-main" aria-label="Schema properties">
+            <div class="object-detail-card">
+              <div class="schema-properties-toolbar"><button class="schema-properties-back" onclick={closeSchemaProperties}><ArrowLeft size={15} />Back to {sectionLabel.toLowerCase()}</button><button class="schema-properties-close" aria-label="Close schema properties" title="Close schema properties" onclick={closeSchemaProperties}><X size={17} /></button></div>
+              <div class="object-heading"><h1>{schemaProperties.displayName ?? schemaProperties.schemaName ?? schemaProperties.name}</h1><span>Schema properties</span></div>
+              {#if schemaPropertiesLoading}<p role="status">Loading schema properties…</p>{:else if schemaPropertiesError}<p role="alert">{schemaPropertiesError}</p><button onclick={() => schemaProperties && openSchemaProperties(schemaProperties)}>Retry schema properties</button>{/if}
+              {#if schemaProperties.details}<dl class="object-properties">{#each Object.entries(schemaProperties.details) as [label, value]}<div><dt>{label}</dt><dd>{value}</dd></div>{/each}</dl>{/if}
+              {#if schemaProperties.definition}<ObjectDefinition preserveSource definition={schemaProperties.definition} name={schemaProperties.name} />{:else if !schemaPropertiesLoading && !schemaPropertiesError}<p>{schemaProperties.details?.['Definition status'] || 'SQL definition is unavailable to this account.'}</p>{/if}
+            </div>
+          </section>
+        {:else if editingRow && rowsPage && selectedConnection}
           <RecordEditor connectionId={selectedConnection.id} table={selectedTable} columns={rowsPage.columns} row={editingRow} editKey={rowsPage.editKey ?? []} cancel={() => editingRow = null} saved={recordSaved} />
         {:else if activeObjectType === 'table' || isViewType(activeObjectType)}
           <div class="table-main">

@@ -231,3 +231,84 @@ func TestPostgresCategoryLimit(t *testing.T) {
 		t.Fatalf("unbounded category: %d %v %v", len(objects), truncated, err)
 	}
 }
+
+func TestPostgresCategoryKeepsRawGroupingNames(t *testing.T) {
+	connector := &postgresCatalogConnector{query: func(string, []sqldriver.NamedValue) (sqldriver.Rows, error) {
+		return &postgresCatalogRows{columns: []string{"__name", "__type", "__schema", "__display", "Identity arguments"}, values: [][]sqldriver.Value{
+			{`"odd.schema"."echo.name"(value integer)`, "function", "odd.schema", "echo.name(value integer)", "value integer"},
+			{`"odd.schema"."echo.name"(value text)`, "function", "odd.schema", "echo.name(value text)", "value text"},
+		}}, nil
+	}}
+	db := sql.OpenDB(connector)
+	defer db.Close()
+	objects, _, err := postgresCategory(context.Background(), db, "SELECT explicit_columns FROM catalog LIMIT 1001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(objects) != 2 || objects[0].SchemaName != "odd.schema" || objects[0].DisplayName != "echo.name(value integer)" || objects[1].DisplayName != "echo.name(value text)" || objects[0].Name == objects[1].Name {
+		t.Fatalf("raw identifiers or overloads were changed: %+v", objects)
+	}
+	for _, object := range objects {
+		for _, internal := range []string{"__name", "__type", "__schema", "__display"} {
+			if _, ok := object.Details[internal]; ok {
+				t.Fatal("internal catalog fields leaked to metadata")
+			}
+		}
+	}
+}
+
+func TestPostgresSchemaACLAvailabilityAndLimits(t *testing.T) {
+	for _, tc := range []struct {
+		name                        string
+		defaultACL, limited         bool
+		entries                     string
+		err                         error
+		source, status, wantWarning string
+	}{
+		{name: "default owner grants", defaultACL: true, entries: "owner: CREATE (grantor owner)\nowner: USAGE (grantor owner)", source: "Default schema ACL", status: "Available."},
+		{name: "explicit PUBLIC grant", entries: "PUBLIC: USAGE (grantor owner)", source: "Explicit schema ACL", status: "Available."},
+		{name: "explicit empty ACL", source: "Explicit schema ACL", status: "Available."},
+		{name: "truncated grants", entries: "PUBLIC: USAGE (grantor owner)", limited: true, source: "Explicit schema ACL", status: "Limited to 1000", wantWarning: "limited to 1000 direct grants"},
+		{name: "permission denied", err: &pgconn.PgError{Code: "42501"}, status: "unavailable to this account", wantWarning: "Schema ACL metadata is unavailable"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			connector := &postgresCatalogConnector{query: func(q string, args []sqldriver.NamedValue) (sqldriver.Rows, error) {
+				if !strings.Contains(q, "aclexplode(COALESCE(n.nspacl,acldefault('n',n.nspowner)))") || strings.Count(q, "LIMIT 1001") != 2 || !strings.Contains(q, "acl.entry_no<=1000") {
+					t.Fatal("schema ACL query is not bounded or ignores default ACL")
+				}
+				if tc.err != nil {
+					return nil, tc.err
+				}
+				return &postgresCatalogRows{columns: []string{"Schema", "Default ACL", "ACL entries", "ACL truncated"}, values: [][]sqldriver.Value{{"odd.schema", tc.defaultACL, tc.entries, tc.limited}}}, nil
+			}}
+			db := sql.OpenDB(connector)
+			defer db.Close()
+			schemas := []Object{{Name: `"odd.schema"`, SchemaName: "odd.schema", DisplayName: "odd.schema", Type: "schema", Details: map[string]string{"Owner": "owner", "Current account": "reader", "Current account USAGE": "true", "Current account CREATE": "false"}}}
+			warnings := []string{}
+			if err := postgresSchemaACL(context.Background(), db, schemas, &warnings); err != nil {
+				t.Fatal(err)
+			}
+			details := schemas[0].Details
+			if !strings.Contains(details["ACL status"], tc.status) || tc.source != "" && !strings.Contains(details["ACL source"], tc.source) {
+				t.Fatalf("incorrect ACL availability: %v", details)
+			}
+			if details["Current account USAGE"] != "true" || details["Current account CREATE"] != "false" || details["Owner"] != "owner" {
+				t.Fatal("ACL lookup replaced effective permissions or ownership")
+			}
+			if tc.wantWarning != "" && !strings.Contains(strings.Join(warnings, "\n"), tc.wantWarning) {
+				t.Fatalf("missing ACL warning: %v", warnings)
+			}
+			if tc.err == nil {
+				if !strings.Contains(details["ACL interpretation"], "PUBLIC means every role") || !strings.Contains(details["ACL interpretation"], "ALTER DEFAULT PRIVILEGES") || !strings.Contains(details["Permission interpretation"], "implicit grant options") {
+					t.Fatal("schema ACL explanation is incomplete")
+				}
+				if tc.entries == "" && details["ACL entries"] != "No direct grants." {
+					t.Fatal("empty explicit ACL misrepresented")
+				}
+			}
+			if len(connector.queries) != 1 {
+				t.Fatal("schema ACL must use one listing query")
+			}
+		})
+	}
+}

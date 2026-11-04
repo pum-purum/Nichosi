@@ -10,8 +10,9 @@ import (
 
 // Object contains safe metadata only; account authentication data is never returned.
 type Object struct {
-	Name, Type, Definition string
-	Details                map[string]string
+	Name, Type, Definition  string
+	SchemaName, DisplayName string
+	Details                 map[string]string
 }
 
 // MySQLObjects reads schema objects and server-wide accounts with a bounded result size.

@@ -384,3 +384,22 @@ kbd { flex: 0 0 auto; padding: 2px 4px; border: 1px solid #303930; border-radius
 .object-main { flex-direction: column; overflow-y: auto; }
 .object-main > .metadata-warning { flex: none; }
 .object-properties dd { color: var(--text); }
+
+.schema-group { margin-bottom: 8px; }
+.schema-group-heading { display: flex; align-items: center; gap: 3px; }
+.schema-group-heading button { color: var(--muted); background: transparent; border: 0; cursor: pointer; }
+.schema-group-heading button:hover { color: var(--text); background: var(--surface-raised); }
+.schema-group-toggle { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; padding: 8px 3px; font-size: 12px; text-align: left; }
+.schema-group-toggle span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.schema-group-toggle small { margin-left: auto; padding-left: 3px; font-size: 10px; }
+.schema-properties-button { display: grid; place-items: center; padding: 6px; border-radius: 4px; }
+.schema-group-items { padding-left: 13px; }
+.schema-group-items[hidden] { display: none; }
+.schema-group-empty { margin: 5px 9px 10px; color: var(--muted); font-size: 11px; }
+.schema-properties-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; }
+.schema-properties-toolbar button { display: flex; align-items: center; gap: 7px; color: var(--muted); background: transparent; border: 0; cursor: pointer; padding: 5px; }
+.schema-properties-toolbar button:hover { color: var(--text); }
+.schema-group-heading button:focus-visible, .schema-properties-toolbar button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.schema-group { min-width: 0; }
+.schema-group-toggle:disabled { cursor: default; }
+.schema-group-items > .table-nav-item { width: 100%; }

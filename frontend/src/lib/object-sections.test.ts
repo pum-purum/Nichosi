@@ -24,6 +24,10 @@ describe('database object capabilities', () => {
     expect(objectSectionsFor(['table', 'cron'])).toContainEqual({ type: 'cron', label: 'Cron jobs' });
     expect(objectSectionsFor(['table'])).toEqual([{ type: 'table', label: 'Tables' }]);
   });
+  it('moves PostgreSQL schema properties into groups while keeping MySQL schema capabilities unchanged', () => {
+    expect(objectSectionsFor(['table', 'schema'], 'postgres').map(section => section.type)).toEqual(['table']);
+    expect(objectSectionsFor(['table', 'schema'], 'mysql').map(section => section.type)).toEqual(['table', 'schema']);
+  });
   it('preserves MySQL categories', () => {
     expect(objectSectionsFor(['table', 'view', 'trigger', 'role', 'user', 'procedure', 'function', 'event']).map(section => section.label))
       .toEqual(['Tables', 'Views', 'Triggers', 'Roles', 'Users', 'Procedures', 'Functions', 'Events']);

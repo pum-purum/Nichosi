@@ -53,7 +53,21 @@ object browser also lists PostgreSQL accounts together under Users: LOGIN roles
 and NOLOGIN roles. NOLOGIN roles receive a Built-in display badge, which describes
 this grouping rather than proving server-provided origin. Account details retain
 the Login allowed attribute. The browser also lists triggers, procedures,
-functions, schemas, sequences, types, extensions and indexes. Overloaded routines
+functions, sequences, types, extensions and indexes. PostgreSQL schema-scoped
+objects appear in expandable schema groups within each category; there is no
+separate Schemas navigation section. Empty accessible schemas remain available.
+Groups use raw `schemaName` metadata and short `displayName` labels; API requests
+continue using the full opaque `name`, including routine identity arguments.
+Users, extensions and cron jobs remain ungrouped.
+
+Each schema group offers Schema properties with the owner, effective USAGE and
+CREATE permissions for the current database account, and bounded ACL metadata.
+Opening properties preserves the current category and selected object. Group
+expansion state persists across categories until switching connections. Search
+reveals matching children in collapsed groups and matches both short and qualified
+names; clearing search restores expansion state.
+
+Overloaded routines
 include their identity arguments. Role metadata never includes authentication data.
 
 The API reports `supportedObjectTypes`; the navigation displays those categories

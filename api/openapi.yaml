@@ -360,6 +360,12 @@ components:
       type: object
       required: [name, rowsEstimate, dataBytes, indexBytes, columns]
       properties:
+        schemaName:
+          type: string
+          description: Raw PostgreSQL schema name for grouping. Omitted for other drivers and objects outside schema navigation.
+        displayName:
+          type: string
+          description: Short display label within a schema group; retains routine identity arguments and trigger table context. The name field remains the full opaque API identifier.
         name: { type: string }
         rowsEstimate: { type: integer, format: int64 }
         dataBytes: { type: integer, format: int64, description: "Estimated table data size in bytes" }
@@ -392,6 +398,12 @@ components:
       type: object
       required: [name, type]
       properties:
+        schemaName:
+          type: string
+          description: Raw PostgreSQL schema name for grouping. Omitted for other drivers and objects outside schema navigation.
+        displayName:
+          type: string
+          description: Short display label within a schema group; retains routine identity arguments and trigger table context. The name field remains the full opaque API identifier.
         name: { type: string }
         type: { $ref: "#/components/schemas/ObjectType" }
         definition:
@@ -400,7 +412,7 @@ components:
         details:
           type: object
           additionalProperties: { type: string }
-          description: Read-only object metadata. Accounts are server-wide and include their host. Account category is internal for the known mysql.infoschema/mysql.session/mysql.sys accounts at localhost, default-admin for root at localhost, and other otherwise. This name-based recognition is not creation provenance, a privilege check, or the MySQL SYSTEM_USER category.
+          description: Read-only object metadata. Accounts are server-wide and include their host. Account category is internal for the known mysql.infoschema/mysql.session/mysql.sys accounts at localhost, default-admin for root at localhost, and other otherwise. This name-based recognition is not creation provenance, a privilege check, or the MySQL SYSTEM_USER category. PostgreSQL schema objects include Owner, effective current-account USAGE and CREATE permissions, and bounded explicit ACL metadata with availability notes.
     Filter:
       type: object
       required: [column, op]

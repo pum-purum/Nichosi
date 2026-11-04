@@ -49,6 +49,7 @@ func safePostgresError(err error, password string) error {
 }
 
 type PostgresTable struct {
+	SchemaName, DisplayName             string
 	Name                                string
 	RowsEstimate, DataBytes, IndexBytes int64
 	Columns                             []RowColumn

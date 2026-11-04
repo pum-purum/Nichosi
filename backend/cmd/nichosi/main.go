@@ -225,7 +225,7 @@ func (a *app) getSchema(w http.ResponseWriter, r *http.Request) {
 			schema.SupportedObjectTypes = append(schema.SupportedObjectTypes, ObjectType(kind))
 		}
 		for _, t := range tables {
-			table := TableInfo{Name: t.Name, RowsEstimate: t.RowsEstimate, DataBytes: t.DataBytes, IndexBytes: t.IndexBytes, Columns: []Column{}}
+			table := TableInfo{Name: t.Name, SchemaName: optionalString(t.SchemaName), DisplayName: optionalString(t.DisplayName), RowsEstimate: t.RowsEstimate, DataBytes: t.DataBytes, IndexBytes: t.IndexBytes, Columns: []Column{}}
 			for _, c := range t.Columns {
 				table.Columns = append(table.Columns, Column{Name: c.Name, Type: c.Type, Nullable: c.Nullable, PrimaryKey: c.PrimaryKey})
 			}
@@ -233,7 +233,7 @@ func (a *app) getSchema(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, o := range objects {
 			details := o.Details
-			schema.Objects = append(schema.Objects, DatabaseObject{Name: o.Name, Type: ObjectType(o.Type), Definition: &o.Definition, Details: &details})
+			schema.Objects = append(schema.Objects, DatabaseObject{Name: o.Name, SchemaName: optionalString(o.SchemaName), DisplayName: optionalString(o.DisplayName), Type: ObjectType(o.Type), Definition: &o.Definition, Details: &details})
 		}
 		writeJSON(w, 200, schema)
 		return
@@ -471,6 +471,12 @@ func (a *app) queryObjectRows(w http.ResponseWriter, r *http.Request, view bool)
 }
 
 func ptrString(value string) *string { return &value }
+func optionalString(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
+}
 
 func (a *app) loadConfiguredConnections() {
 	configPath := os.Getenv("NICHOSI_CONNECTIONS_FILE")
