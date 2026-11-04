@@ -568,7 +568,7 @@
                 <span class="connection-meta" title="Database size"><HardDrive size={14} /><span>{formatBytes(connection.databaseSizeBytes)}</span></span>
                 <span class="connection-meta connection-time" title="Last connection"><Clock size={14} /><span>{formatDate(connection.lastConnectedAt)}</span></span>
                 {#if connection.readonly}<span class="connection-readonly" title="Read-only connection"><ShieldCheck size={14} /> Read only</span>{/if}
-                <span class:connected={connection.connected} class="preview-badge"><span></span>{connection.connected ? 'Connected' : 'Disconnected'}</span>
+                <span class:connected={connection.connected} class="preview-badge" title={connection.connected ? 'Connected' : 'Disconnected'}><span></span>{connection.connected ? 'Online' : 'Offline'}</span>
               </div>
             </button>
           {/each}
