@@ -21,6 +21,10 @@ func (a *app) changeRows(w http.ResponseWriter, r *http.Request, apply bool) {
 	}
 	item.mu.RLock()
 	defer item.mu.RUnlock()
+	if item.Driver == ConnectionDriverPostgres {
+		writeError(w, 403, "read_only", "PostgreSQL editing is not supported yet")
+		return
+	}
 	if item.Readonly || connectionReadonly(item.input.Readonly) {
 		writeError(w, 403, "read_only", "Connection is read-only")
 		return

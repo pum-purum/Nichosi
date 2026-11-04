@@ -9,6 +9,9 @@ services:
       NICHOSI_ADDR: 0.0.0.0:8080
       NICHOSI_LOCAL_PREVIEW: "true"
       NICHOSI_CONNECTIONS_FILE: /config/connections.json
+    env_file:
+      - path: ../.env
+        required: false
     ports:
       - "127.0.0.1:8080:8080"
     volumes:

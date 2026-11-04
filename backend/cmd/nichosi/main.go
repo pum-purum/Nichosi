@@ -34,14 +34,15 @@ type connectionsConfig struct {
 }
 
 type connectionConfig struct {
-	Name     string `json:"name"`
-	Driver   string `json:"driver"`
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	User     string `json:"user"`
-	Database string `json:"database"`
-	Readonly *bool  `json:"readonly"`
-	Password string `json:"password"`
+	Name        string `json:"name"`
+	Driver      string `json:"driver"`
+	Host        string `json:"host"`
+	Port        int    `json:"port"`
+	User        string `json:"user"`
+	Database    string `json:"database"`
+	Readonly    *bool  `json:"readonly"`
+	Password    string `json:"password"`
+	PasswordEnv string `json:"passwordEnv"`
 }
 
 type app struct {
@@ -125,13 +126,13 @@ func (a *app) createConnection(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", "Invalid connection details")
 		return
 	}
-	if input.Driver != ConnectionInputDriver("mysql") || input.Host == "" || input.Port < 1 || input.Port > 65535 || input.User == "" || input.Password == nil || *input.Password == "" || input.Database == "" {
-		writeError(w, http.StatusBadRequest, "invalid_connection", "Provide valid MySQL connection details")
+	if (input.Driver != ConnectionInputDriver("mysql") && input.Driver != ConnectionInputDriver("postgres")) || input.Host == "" || input.Port < 1 || input.Port > 65535 || input.User == "" || input.Password == nil || *input.Password == "" || input.Database == "" {
+		writeError(w, http.StatusBadRequest, "invalid_connection", "Provide valid MySQL or PostgreSQL connection details")
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
 	defer cancel()
-	item, err := a.openMySQLConnection(ctx, input)
+	item, err := a.openConnection(ctx, input)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, "connection_failed", err.Error())
 		return
@@ -164,7 +165,7 @@ func (a *app) connectConnection(w http.ResponseWriter, r *http.Request) {
 	if item.pool == nil {
 		ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
 		defer cancel()
-		opened, err := a.openMySQLConnection(ctx, item.input)
+		opened, err := a.openConnection(ctx, item.input)
 		if err != nil {
 			writeError(w, http.StatusBadGateway, "connection_failed", err.Error())
 			return
@@ -212,6 +213,27 @@ func (a *app) getSchema(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
+	if item.Driver == ConnectionDriverPostgres {
+		tables, objects, warnings, err := driver.PostgresSchema(ctx, item.pool)
+		if err != nil {
+			writeError(w, 502, "metadata_failed", err.Error())
+			return
+		}
+		schema := Schema{Tables: []TableInfo{}, Objects: []DatabaseObject{}, Warnings: &warnings}
+		for _, t := range tables {
+			table := TableInfo{Name: t.Name, RowsEstimate: t.RowsEstimate, DataBytes: t.DataBytes, IndexBytes: t.IndexBytes, Columns: []Column{}}
+			for _, c := range t.Columns {
+				table.Columns = append(table.Columns, Column{Name: c.Name, Type: c.Type, Nullable: c.Nullable, PrimaryKey: c.PrimaryKey})
+			}
+			schema.Tables = append(schema.Tables, table)
+		}
+		for _, o := range objects {
+			details := o.Details
+			schema.Objects = append(schema.Objects, DatabaseObject{Name: o.Name, Type: DatabaseObjectType(o.Type), Details: &details})
+		}
+		writeJSON(w, 200, schema)
+		return
+	}
 	rows, err := item.pool.QueryContext(ctx, "SELECT TABLE_NAME, COALESCE(TABLE_ROWS,0), COALESCE(DATA_LENGTH,0), COALESCE(INDEX_LENGTH,0) FROM information_schema.tables WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME", item.Database)
 	if err != nil {
 		writeError(w, 502, "metadata_failed", err.Error())
@@ -299,7 +321,13 @@ func (a *app) getObjectDefinition(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
-	object, err := driver.MySQLObjectDefinition(ctx, item.pool, item.Database, kind, name)
+	var object driver.Object
+	var err error
+	if item.Driver == ConnectionDriverPostgres {
+		object, err = driver.PostgresObjectDefinition(ctx, item.pool, kind, name)
+	} else {
+		object, err = driver.MySQLObjectDefinition(ctx, item.pool, item.Database, kind, name)
+	}
 	if err != nil {
 		writeError(w, http.StatusBadGateway, "metadata_failed", err.Error())
 		return
@@ -369,7 +397,13 @@ func (a *app) queryObjectRows(w http.ResponseWriter, r *http.Request, view bool)
 			filters = append(filters, driver.RowFilter{Column: filter.Column, Op: string(filter.Op), Connector: connector, Value: value})
 		}
 	}
-	result, err := driver.MySQLFilteredRows(ctx, item.pool, item.Database, name, view, limit, offset, filters, ordering...)
+	var result driver.RowPage
+	var err error
+	if item.Driver == ConnectionDriverPostgres {
+		result, err = driver.PostgresFilteredRows(ctx, item.pool, name, view, limit, offset, filters, ordering...)
+	} else {
+		result, err = driver.MySQLFilteredRows(ctx, item.pool, item.Database, name, view, limit, offset, filters, ordering...)
+	}
 	if errors.Is(err, driver.ErrInvalidFilter) {
 		writeError(w, http.StatusBadRequest, "invalid_filter", "Invalid filter column, operator, connector or value")
 		return
@@ -402,7 +436,7 @@ func (a *app) queryObjectRows(w http.ResponseWriter, r *http.Request, view bool)
 		page.Columns = append(page.Columns, Column{Name: c.Name, Type: c.Type, Nullable: c.Nullable, PrimaryKey: c.PrimaryKey})
 	}
 	reason := "Read-only connection"
-	if !view && !item.Readonly && !connectionReadonly(item.input.Readonly) {
+	if !view && item.Driver != ConnectionDriverPostgres && !item.Readonly && !connectionReadonly(item.input.Readonly) {
 		metadata, editErr := driver.MySQLEditMetadata(ctx, item.pool, item.Database, name)
 		if editErr == nil {
 			page.Editable = true
@@ -417,6 +451,9 @@ func (a *app) queryObjectRows(w http.ResponseWriter, r *http.Request, view bool)
 		} else {
 			reason = "Could not verify table editing metadata"
 		}
+	}
+	if item.Driver == ConnectionDriverPostgres {
+		reason = "PostgreSQL editing is not supported yet"
 	}
 	if view {
 		reason = "Views are read-only"
@@ -444,11 +481,14 @@ func (a *app) loadConfiguredConnections() {
 		return
 	}
 	for _, saved := range config.Connections {
-		if saved.Driver != "mysql" || saved.Name == "" || saved.Host == "" || saved.Port < 1 || saved.Port > 65535 || saved.User == "" || saved.Database == "" || saved.Password == "" {
+		if saved.PasswordEnv != "" {
+			saved.Password = os.Getenv(saved.PasswordEnv)
+		}
+		if (saved.Driver != "mysql" && saved.Driver != "postgres") || saved.Name == "" || saved.Host == "" || saved.Port < 1 || saved.Port > 65535 || saved.User == "" || saved.Database == "" || saved.Password == "" {
 			slog.Warn("skipping invalid connection profile", "name", saved.Name)
 			continue
 		}
-		readonly := connectionReadonly(saved.Readonly)
+		readonly := saved.Driver == "postgres" || connectionReadonly(saved.Readonly)
 		input := ConnectionInput{
 			Name: saved.Name, Driver: ConnectionInputDriver(saved.Driver), Host: saved.Host,
 			Port: saved.Port, User: saved.User, Password: &saved.Password,
@@ -462,7 +502,7 @@ func (a *app) loadConfiguredConnections() {
 			Connection: Connection{
 				Id:        fmt.Sprintf("conn-%d", time.Now().UTC().UnixNano()),
 				Name:      name,
-				Driver:    ConnectionDriver("mysql"),
+				Driver:    ConnectionDriver(saved.Driver),
 				Host:      saved.Host,
 				Port:      saved.Port,
 				User:      saved.User,
@@ -526,4 +566,22 @@ func env(key, fallback string) string {
 func isLoopback(addr string) bool {
 	host, _, err := net.SplitHostPort(addr)
 	return err == nil && (host == "localhost" || net.ParseIP(host) != nil && net.ParseIP(host).IsLoopback())
+}
+
+func (a *app) openConnection(ctx context.Context, input ConnectionInput) (*profile, error) {
+	if input.Driver != ConnectionInputDriverPostgres {
+		return a.openMySQLConnection(ctx, input)
+	}
+	pool, size, err := driver.OpenPostgres(ctx, input.Host, input.Port, input.User, *input.Password, input.Database)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now().UTC()
+	readonly := true
+	input.Readonly = &readonly
+	name := strings.TrimSpace(input.Name)
+	if name == "" {
+		name = input.Database
+	}
+	return &profile{Connection: Connection{Id: fmt.Sprintf("conn-%d", now.UnixNano()), Name: name, Driver: ConnectionDriverPostgres, Host: input.Host, Port: input.Port, User: input.User, Database: input.Database, Readonly: true, Connected: true, DatabaseSizeBytes: &size, LastConnectedAt: &now}, pool: pool, input: input}, nil
 }

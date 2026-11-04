@@ -100,3 +100,44 @@ func TestConnectionInputReadonlyDefault(t *testing.T) {
 		})
 	}
 }
+
+func TestPostgresConfiguredPasswordEnv(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		set  bool
+		want int
+	}{{"available", true, 1}, {"missing", false, 0}} {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.set {
+				t.Setenv("NICHOSI_TEST_PROFILE_PASSWORD", "env-secret")
+			} else {
+				t.Setenv("NICHOSI_TEST_PROFILE_PASSWORD", "")
+			}
+			file := filepath.Join(t.TempDir(), "connections.json")
+			config := `{"connections":[{"name":"Postgres","driver":"postgres","host":"localhost","port":5432,"user":"app","database":"app","password":"fallback-secret","passwordEnv":"NICHOSI_TEST_PROFILE_PASSWORD","readonly":false}]}`
+			if err := os.WriteFile(file, []byte(config), 0600); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("NICHOSI_CONNECTIONS_FILE", file)
+			application := &app{}
+			application.loadConfiguredConnections()
+			if len(application.connections) != tc.want {
+				t.Fatalf("loaded %d profiles", len(application.connections))
+			}
+			if tc.want == 0 {
+				return
+			}
+			p := application.connections[0]
+			if p.Driver != ConnectionDriverPostgres || !p.Readonly || *p.input.Password != "env-secret" {
+				t.Fatal("PostgreSQL must use environment credentials and read-only mode")
+			}
+			response := httptest.NewRecorder()
+			application.listConnections(response, httptest.NewRequest("GET", "/api/connections", nil))
+			for _, secret := range []string{"env-secret", "fallback-secret", "passwordEnv"} {
+				if strings.Contains(response.Body.String(), secret) {
+					t.Fatal("secret exposed")
+				}
+			}
+		})
+	}
+}

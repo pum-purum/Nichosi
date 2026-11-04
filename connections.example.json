@@ -9,6 +9,16 @@
       "database": "database_name",
       "password": "",
       "readonly": false
+    },
+    {
+      "name": "Local PostgreSQL",
+      "driver": "postgres",
+      "host": "host.docker.internal",
+      "port": 5432,
+      "user": "database_user",
+      "database": "database_name",
+      "passwordEnv": "NICHOSI_POSTGRES_PASSWORD",
+      "readonly": true
     }
   ]
 }

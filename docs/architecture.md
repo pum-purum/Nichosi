@@ -42,6 +42,26 @@ parameterized SQL only; row limit and timeout on every UI query; audit log of wr
 4. Statistics.
 5. Polish: SSH tunnel, PostgreSQL, Docker image on Docker Hub and ghcr.io, desktop build.
 
+## PostgreSQL connections
+
+PostgreSQL profiles use `driver: "postgres"`. Local PostgreSQL connections currently
+use TLS disabled and support read-only browsing; PostgreSQL ChangeSets are not yet
+available. Keep this setup on a trusted local network.
+Tables and views are listed across accessible user schemas with qualified names
+such as `public.events`. Materialized views appear under Views. Functions,
+procedures, triggers and roles are not yet listed in the PostgreSQL object tree.
+Table metadata includes columns, indexes and foreign keys; a complete CREATE TABLE
+statement is not reconstructed.
+
+Use `passwordEnv` in `connections.json` to name an environment variable containing
+the password. This takes precedence over the legacy `password` field. With Docker
+Compose, set `NICHOSI_POSTGRES_PASSWORD` in the ignored root `.env` file; Compose
+passes it to Nichosi. Direct backend runs require exporting the variable explicitly.
+Restart Nichosi after changing profiles or environment variables.
+
+For databases published by another Docker project, use `host.docker.internal` and
+the published host port, for example 5432 for a primary and 5433 for a replica.
+
 ## Record editing
 
 The pencil and trash buttons show the record’s primary key in their tooltips and accessible labels (or the editing unique key when no primary key exists). Composite keys include every key column.

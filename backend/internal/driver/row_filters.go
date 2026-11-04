@@ -26,6 +26,10 @@ func filterScalar(value any) (any, bool) {
 }
 
 func mysqlRowFilters(columns []RowColumn, filters []RowFilter) (string, []any, error) {
+	return rowFilters(columns, filters, QuoteIdent, func(int) string { return "?" })
+}
+
+func rowFilters(columns []RowColumn, filters []RowFilter, quote func(string) string, placeholder func(int) string) (string, []any, error) {
 	if len(filters) > 100 {
 		return "", nil, ErrInvalidFilter
 	}
@@ -53,7 +57,7 @@ func mysqlRowFilters(columns []RowColumn, filters []RowFilter) (string, []any, e
 			}
 			parts = append(parts, join)
 		}
-		column := QuoteIdent(filter.Column)
+		column := quote(filter.Column)
 		var predicate string
 		switch filter.Op {
 		case "isNull", "notNull":
@@ -76,11 +80,11 @@ func mysqlRowFilters(columns []RowColumn, filters []RowFilter) (string, []any, e
 					return "", nil, ErrInvalidFilter
 				}
 				args = append(args, scalar)
-				placeholders[j] = "?"
+				placeholders[j] = placeholder(len(args))
 			}
 			predicate = column + " IN (" + strings.Join(placeholders, ",") + ")"
 			if filter.Op == "between" {
-				predicate = column + " BETWEEN ? AND ?"
+				predicate = column + " BETWEEN " + placeholders[0] + " AND " + placeholders[1]
 			}
 		default:
 			operator, ok := operators[filter.Op]
@@ -97,7 +101,7 @@ func mysqlRowFilters(columns []RowColumn, filters []RowFilter) (string, []any, e
 				}
 			}
 			args = append(args, scalar)
-			predicate = column + " " + operator + " ?"
+			predicate = column + " " + operator + " " + placeholder(len(args))
 		}
 		parts = append(parts, "("+predicate+")")
 	}

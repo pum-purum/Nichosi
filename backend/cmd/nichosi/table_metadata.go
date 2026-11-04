@@ -31,7 +31,13 @@ func (a *app) getObjectMetadata(w http.ResponseWriter, r *http.Request, view boo
 	defer cancel()
 	var metadata driver.TableMetadata
 	var err error
-	if view {
+	if item.Driver == ConnectionDriverPostgres {
+		name := r.PathValue("table")
+		if view {
+			name = r.PathValue("view")
+		}
+		metadata, err = driver.PostgresMetadata(ctx, item.pool, name, view)
+	} else if view {
 		metadata, err = driver.MySQLViewMetadata(ctx, item.pool, item.Database, r.PathValue("view"))
 	} else {
 		metadata, err = driver.MySQLTableMetadata(ctx, item.pool, item.Database, r.PathValue("table"))
