@@ -1,0 +1,2 @@
+# Compatibility overlay: the existing SQLite volume is mounted by docker-compose.yml.
+services: {}

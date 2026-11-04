@@ -195,7 +195,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Applies update and delete changes in one transaction with a ten-second timeout; rolls back on any error or when a key does not match exactly one row. Read-only connections and tables without InnoDB storage and a usable primary or unique key are rejected. */
+        /** @description Applies update and delete changes in one transaction with a ten-second timeout; rolls back on any error or when a key does not match exactly one row. Read-only connections and tables without a usable primary or non-null unique key are rejected. MySQL tables require InnoDB storage; SQLite changes use its native transactions. */
         post: operations["applyChanges"];
         delete?: never;
         options?: never;
@@ -289,6 +289,7 @@ export interface components {
             /** Format: date-time */
             lastConnectedAt: string | null;
         };
+        /** @description For SQLite, database is an absolute path to an existing file on the backend host (or inside its container). Host, port and user are empty/zero; password may be omitted or empty. SQLite files are opened without creating missing files. */
         ConnectionInput: {
             name: string;
             /** @enum {string} */
@@ -296,7 +297,7 @@ export interface components {
             host: string;
             port: number;
             user: string;
-            password: string;
+            password?: string;
             database: string;
             /**
              * @description Restrict the connection to read-only operations; defaults to true when omitted
@@ -413,6 +414,7 @@ export interface components {
             /** @default 0 */
             offset: number;
         };
+        /** @description SQLite BLOB cells use an object with type blob and a lowercase hex field; these values and binary keys are read-only. */
         RowsPage: {
             columns: components["schemas"]["Column"][];
             /** @description Row values in column order. JSON null is SQL NULL. */

@@ -16,9 +16,12 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
+      - sqlite-demo:/sqlite
       - nichosi-data:/data
       - ../connections.json:/config/connections.json:ro
     restart: unless-stopped
 
+
 volumes:
   nichosi-data:
+  sqlite-demo:

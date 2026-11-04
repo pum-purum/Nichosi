@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 import type { components } from './api/schema';
-import { columnKind } from './cell-value';
+import { columnKind, isBinaryValue } from './cell-value';
 
 type Column = components['schemas']['Column'];
 type ChangeSet = components['schemas']['ChangeSet'];
@@ -8,14 +8,14 @@ export type DraftValue = { text: string; isNull: boolean };
 export function draftValue(value: unknown): DraftValue {
   return { text: value === null ? '' : typeof value === 'object' ? JSON.stringify(value) : String(value), isNull: value === null };
 }
-export function editableColumn(column: Column): boolean {
-  return !column.primaryKey && !column.generated && columnKind(column.type) !== 'binary';
+export function editableColumn(column: Column, value?: unknown): boolean {
+  return !isBinaryValue(value) && !column.primaryKey && !column.generated && columnKind(column.type) !== 'binary';
 }
 export function rowChanges(columns: Column[], original: unknown[], draft: DraftValue[], editKey: string[]): ChangeSet {
   const values: Record<string, unknown> = {};
   const key = rowKey(columns, original, editKey);
   columns.forEach((column, index) => {
-    if (!editableColumn(column)) return;
+    if (!editableColumn(column, original[index])) return;
     const before = draftValue(original[index]);
     const after = draft[index];
     if (before.isNull === after.isNull && (after.isNull || before.text === after.text)) return;
@@ -43,6 +43,7 @@ export function rowKey(columns: Column[], original: unknown[], editKey: string[]
   const key: Record<string, unknown> = {};
   for (const name of editKey) {
     const index = columns.findIndex(column => column.name === name);
+    if (isBinaryValue(original[index])) throw new Error('Binary row keys are read-only.');
     if (index < 0 || original[index] === null || original[index] === undefined) throw new Error('This row has no usable key.');
     if (typeof original[index] === 'number' && columnKind(columns[index].type) === 'integer' && !Number.isSafeInteger(original[index])) throw new Error('This row key exceeds safe numeric precision. Reload the data before editing.');
     Object.defineProperty(key, name, { value: original[index], enumerable: true });

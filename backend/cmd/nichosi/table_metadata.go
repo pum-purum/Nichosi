@@ -37,6 +37,12 @@ func (a *app) getObjectMetadata(w http.ResponseWriter, r *http.Request, view boo
 			name = r.PathValue("view")
 		}
 		metadata, err = driver.PostgresMetadata(ctx, item.pool, name, view)
+	} else if item.Driver == ConnectionDriverSqlite {
+		name := r.PathValue("table")
+		if view {
+			name = r.PathValue("view")
+		}
+		metadata, err = driver.SQLiteMetadata(ctx, item.pool, name, view)
 	} else if view {
 		metadata, err = driver.MySQLViewMetadata(ctx, item.pool, item.Database, r.PathValue("view"))
 	} else {

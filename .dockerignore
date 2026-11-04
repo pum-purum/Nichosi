@@ -6,3 +6,5 @@ frontend/node_modules
 frontend/dist
 backend/nichosi
 *.log
+
+.pnpm-store/

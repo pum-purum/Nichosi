@@ -134,8 +134,8 @@ func (a *app) createConnection(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", "Invalid connection details")
 		return
 	}
-	if (input.Driver != ConnectionInputDriver("mysql") && input.Driver != ConnectionInputDriver("postgres")) || input.Host == "" || input.Port < 1 || input.Port > 65535 || input.User == "" || input.Password == nil || *input.Password == "" || input.Database == "" {
-		writeError(w, http.StatusBadRequest, "invalid_connection", "Provide valid MySQL or PostgreSQL connection details")
+	if !validConnectionInput(input) {
+		writeError(w, http.StatusBadRequest, "invalid_connection", "Provide valid database connection details")
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
@@ -226,8 +226,18 @@ func (a *app) getSchema(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
-	if item.Driver == ConnectionDriverPostgres {
-		catalog, err := driver.PostgresCatalog(ctx, item.pool)
+	if item.Driver == ConnectionDriverPostgres || item.Driver == ConnectionDriverSqlite {
+		catalog, err := driver.PostgresCatalogResult{}, error(nil)
+		if item.Driver == ConnectionDriverSqlite {
+			c, e := driver.SQLiteCatalog(ctx, item.pool)
+			err = e
+			catalog.Tables = c.Tables
+			catalog.Objects = c.Objects
+			catalog.Warnings = c.Warnings
+			catalog.SupportedObjectTypes = c.SupportedObjectTypes
+		} else {
+			catalog, err = driver.PostgresCatalog(ctx, item.pool)
+		}
 		tables, objects, warnings := catalog.Tables, catalog.Objects, catalog.Warnings
 		if err != nil {
 			writeError(w, 502, "metadata_failed", err.Error())
@@ -336,7 +346,7 @@ func (a *app) getObjectDefinition(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "disconnected", "Connection is closed")
 		return
 	}
-	if item.Driver == ConnectionDriverPostgres && kind == "event" || item.Driver != ConnectionDriverPostgres && kind != "view" && kind != "trigger" && kind != "procedure" && kind != "function" && kind != "event" {
+	if item.Driver == ConnectionDriverSqlite && kind != "view" && kind != "trigger" && kind != "index" || item.Driver == ConnectionDriverPostgres && kind == "event" || item.Driver == ConnectionDriverMysql && kind != "view" && kind != "trigger" && kind != "procedure" && kind != "function" && kind != "event" {
 		writeError(w, http.StatusBadRequest, "invalid_object_type", "Object type is not supported by this connection")
 		return
 	}
@@ -346,6 +356,8 @@ func (a *app) getObjectDefinition(w http.ResponseWriter, r *http.Request) {
 	var err error
 	if item.Driver == ConnectionDriverPostgres {
 		object, err = driver.PostgresObjectDefinition(ctx, item.pool, kind, name)
+	} else if item.Driver == ConnectionDriverSqlite {
+		object, err = driver.SQLiteObjectDefinition(ctx, item.pool, kind, name)
 	} else {
 		object, err = driver.MySQLObjectDefinition(ctx, item.pool, item.Database, kind, name)
 	}
@@ -422,6 +434,8 @@ func (a *app) queryObjectRows(w http.ResponseWriter, r *http.Request, view bool)
 	var err error
 	if item.Driver == ConnectionDriverPostgres {
 		result, err = driver.PostgresFilteredRows(ctx, item.pool, name, view, limit, offset, filters, ordering...)
+	} else if item.Driver == ConnectionDriverSqlite {
+		result, err = driver.SQLiteFilteredRows(ctx, item.pool, name, view, limit, offset, filters, ordering...)
 	} else {
 		result, err = driver.MySQLFilteredRows(ctx, item.pool, item.Database, name, view, limit, offset, filters, ordering...)
 	}
@@ -458,7 +472,7 @@ func (a *app) queryObjectRows(w http.ResponseWriter, r *http.Request, view bool)
 	}
 	reason := "Read-only connection"
 	if !view && item.Driver != ConnectionDriverPostgres && !item.Readonly && !connectionReadonly(item.input.Readonly) {
-		metadata, editErr := driver.MySQLEditMetadata(ctx, item.pool, item.Database, name)
+		metadata, editErr := editMetadata(ctx, item, name)
 		if editErr == nil {
 			page.Editable = true
 			page.EditKey = &metadata.Key
@@ -468,7 +482,7 @@ func (a *app) queryObjectRows(w http.ResponseWriter, r *http.Request, view bool)
 			}
 			reason = ""
 		} else if errors.Is(editErr, driver.ErrReadOnlyTable) {
-			reason = "Editing requires an InnoDB table with a primary or non-null unique key"
+			reason = "Editing requires a transactional table with a primary or non-null unique key"
 		} else {
 			reason = "Could not verify table editing metadata"
 		}
@@ -511,7 +525,7 @@ func (a *app) loadConfiguredConnections() {
 		if saved.PasswordEnv != "" {
 			saved.Password = os.Getenv(saved.PasswordEnv)
 		}
-		if (saved.Driver != "mysql" && saved.Driver != "postgres") || saved.Name == "" || saved.Host == "" || saved.Port < 1 || saved.Port > 65535 || saved.User == "" || saved.Database == "" || saved.Password == "" {
+		if saved.Name == "" || !validConnectionInput(ConnectionInput{Driver: ConnectionInputDriver(saved.Driver), Host: saved.Host, Port: saved.Port, User: saved.User, Password: &saved.Password, Database: saved.Database}) {
 			slog.Warn("skipping invalid connection profile", "name", saved.Name)
 			continue
 		}
@@ -616,6 +630,9 @@ func isLoopback(addr string) bool {
 }
 
 func (a *app) openConnection(ctx context.Context, input ConnectionInput) (*profile, error) {
+	if input.Driver == Sqlite {
+		return a.openSQLiteConnection(ctx, input)
+	}
 	if input.Driver != ConnectionInputDriver("postgres") {
 		return a.openMySQLConnection(ctx, input)
 	}

@@ -210,7 +210,7 @@ paths:
   /api/connections/{connId}/tables/{table}/changes/apply:
     post:
       operationId: applyChanges
-      description: Applies update and delete changes in one transaction with a ten-second timeout; rolls back on any error or when a key does not match exactly one row. Read-only connections and tables without InnoDB storage and a usable primary or unique key are rejected.
+      description: Applies update and delete changes in one transaction with a ten-second timeout; rolls back on any error or when a key does not match exactly one row. Read-only connections and tables without a usable primary or non-null unique key are rejected. MySQL tables require InnoDB storage; SQLite changes use its native transactions.
       parameters:
         - { $ref: "#/components/parameters/ConnId" }
         - { $ref: "#/components/parameters/Table" }
@@ -304,8 +304,9 @@ components:
         databaseSizeBytes: { type: integer, format: int64, nullable: true, description: "Database size in bytes; null when unavailable" }
         lastConnectedAt: { type: string, format: date-time, nullable: true }
     ConnectionInput:
+      description: "For SQLite, database is an absolute path to an existing file on the backend host (or inside its container). Host, port and user are empty/zero; password may be omitted or empty. SQLite files are opened without creating missing files."
       type: object
-      required: [name, driver, host, port, user, password, database]
+      required: [name, driver, host, port, user, database]
       properties:
         name: { type: string }
         driver: { type: string, enum: [mysql, postgres, sqlite] }
@@ -448,6 +449,7 @@ components:
         limit: { type: integer, minimum: 1, maximum: 1000, default: 200 }
         offset: { type: integer, minimum: 0, default: 0 }
     RowsPage:
+      description: "SQLite BLOB cells use an object with type blob and a lowercase hex field; these values and binary keys are read-only."
       type: object
       required: [columns, rows, editable, totalRows]
       properties:

@@ -7,3 +7,5 @@ bin/
 .env.*
 connections.json
 .DS_Store
+
+.pnpm-store/

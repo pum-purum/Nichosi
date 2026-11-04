@@ -98,8 +98,8 @@ store; restoring a field to its original value removes it from the update. SQL N
 is an explicit choice distinct from an empty string. Numeric text retains precision. SQL preview parameters for integer columns use numbers within JavaScript’s safe integer range; larger integers remain strings to preserve every digit.
 The original primary key (or a complete non-null unique key) identifies the row throughout editing. Primary key columns are read-only in the form and rejected
 by the backend when included in update values. Tables without a usable key and read-only connections
-cannot be edited; views always remain read-only. Updates currently require InnoDB
-so the transaction can roll back. Generated and binary fields are shown read-only.
+cannot be edited; views always remain read-only. MySQL updates require InnoDB so the transaction can roll back; SQLite updates
+use SQLite transactions. Generated and binary fields are shown read-only.
 Keys containing binary or temporal columns, prefix indexes, and functional indexes
 are excluded; another usable key is selected when available.
 
@@ -115,3 +115,24 @@ record and a parameterized SQL preview. Cancel is initially focused; Escape canc
 before applying. Delete is enabled only after a successful preview. Deletion uses
 the original complete row key and the same transaction and read-only checks as updates.
 The modal remains open on failure; successful deletion refreshes the current data page.
+
+## SQLite connections
+
+SQLite uses `modernc.org/sqlite` without cgo. The `database` profile field is an
+absolute path to an existing backend-local file; host, port, user and password are
+unused. Docker deployments mount the file directory into Nichosi. Open mode is
+`ro` by default and `rw` only with explicit `readonly: false`; missing databases
+are never created by a connection request. Foreign key enforcement is enabled.
+
+The object browser exposes tables, views, indexes and triggers. Stored definitions
+retain SQLite syntax. Pages use bounded parameterized filters, ordering and a
+request timeout. Tables with a usable primary or non-null unique key support
+ChangeSet preview and transactional updates/deletes; keyless tables and views
+remain read-only. The default Compose configuration mounts an existing SQLite demo volume.
+Demo data was populated once; startup does not seed or recreate the database.
+
+SQLite uses dynamic value types. BLOB cells retain their binary identity in JSON
+as `{"type":"blob","hex":"..."}` and display as hexadecimal read-only values.
+Candidate edit keys containing runtime values other than integers or text are
+rejected. Binary key objects are also rejected during change validation, preserving
+row identity if another process changes the database between page load and Apply.

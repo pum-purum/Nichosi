@@ -1,6 +1,6 @@
 # Nichosi
 
-Nichosi is a web app for browsing database tables. It currently connects to MySQL and MariaDB. PostgreSQL and SQLite are not available yet.
+Nichosi is a web app for browsing database tables. It connects to MySQL, MariaDB, PostgreSQL (read-only), and SQLite.
 
 ## What you need
 
@@ -137,3 +137,30 @@ and page-size changes; selecting another table or view resets it. MySQL determin
 NULL ordering and text collation. Primary keys break ties when available.
 
 Database sizes and last successful connection times are stored in the `nichosi-data` Docker volume. They survive container recreation and `make down`; `docker compose down -v` deletes them. The metadata file contains no passwords or DSNs. Configured connections start disconnected and display their cached observations until the next successful connection. For local runs, set `NICHOSI_METADATA_FILE` to a writable file path to enable persistence.
+
+## SQLite demo
+
+SQLite is an embedded database: Nichosi opens an existing file, with no database
+server, host, port, user, or password. Paths are absolute paths inside the backend
+container. Missing files are rejected. Read-only profiles open the file in SQLite
+read-only mode; writable profiles use a transaction for each ChangeSet. Tables
+without a usable primary or non-null unique key and all views remain read-only.
+
+Add this profile to `connections.json`:
+
+```json
+{"name":"SQLite demo","driver":"sqlite","database":"/sqlite/demo.sqlite","readonly":false}
+```
+
+The Compose configuration mounts the existing `sqlite-demo` volume at `/sqlite`.
+The local demo was populated once with 80 customers, 500 orders, a view, indexes,
+a foreign key, an audit trigger, a unique-key table and a keyless audit table.
+No seed scripts or initializer containers run at startup. An empty volume must be
+populated separately before connecting; Nichosi never creates a missing database.
+
+Start or rebuild Nichosi with `make re`; stop it with `make down`. The named volume
+preserves the existing database and edits across restarts.
+
+For your own file, mount its directory
+with write permissions for UID 65532 when editing is needed (including SQLite
+journal files), then use its container path in the profile.

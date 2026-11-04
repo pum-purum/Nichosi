@@ -19,10 +19,15 @@ export function columnKind(sqlType: string): CellKind {
   return 'other';
 }
 
+export function isBinaryValue(value: unknown): value is { type: 'blob'; hex: string } {
+  return typeof value === 'object' && value !== null && 'type' in value && value.type === 'blob' && 'hex' in value && typeof value.hex === 'string';
+}
+
 export function cellValue(value: unknown, sqlType: string) {
-  const kind = value === null ? 'null' : columnKind(sqlType);
+  const kind = value === null ? 'null' : isBinaryValue(value) ? 'binary' : columnKind(sqlType);
   // Keep strings and decimal encodings intact; never parse values through Number or Date.
   const text = value === null ? 'NULL'
+    : isBinaryValue(value) ? `0x${value.hex}`
     : typeof value === 'string' ? value
     : typeof value === 'object' ? JSON.stringify(value)
     : String(value);

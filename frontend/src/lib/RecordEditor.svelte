@@ -71,10 +71,10 @@
     <fieldset disabled={applying}>
       {#each columns as column, index}
         <div class="record-field">
-          <label for={`record-field-${index}`}>{column.name}<small>{column.type}{editKey.includes(column.name) ? ' · Row key' : ''}{column.primaryKey ? ' · Read-only primary key' : ''}{column.generated ? ' · Generated' : ''}{!column.primaryKey && !column.generated && !editableColumn(column) ? ' · Read-only binary value' : ''}</small></label>
-          <textarea id={`record-field-${index}`} rows={1} bind:value={draft[index].text} disabled={draft[index].isNull || !editableColumn(column)} spellcheck="false" aria-label={`${column.name} value`}></textarea>
-          {#if column.nullable}<label class="null-toggle"><input type="checkbox" bind:checked={draft[index].isNull} disabled={!editableColumn(column)} />NULL</label>{:else}<span class="required">Required</span>{/if}
-          {#if editableColumn(column) && (draft[index].isNull !== (row[index] === null) || (!draft[index].isNull && draft[index].text !== draftValue(row[index]).text))}<span class="modified">Modified</span>{/if}
+          <label for={`record-field-${index}`}>{column.name}<small>{column.type}{editKey.includes(column.name) ? ' · Row key' : ''}{column.primaryKey ? ' · Read-only primary key' : ''}{column.generated ? ' · Generated' : ''}{!column.primaryKey && !column.generated && !editableColumn(column, row[index]) ? ' · Read-only binary value' : ''}</small></label>
+          <textarea id={`record-field-${index}`} rows={1} bind:value={draft[index].text} disabled={draft[index].isNull || !editableColumn(column, row[index])} spellcheck="false" aria-label={`${column.name} value`}></textarea>
+          {#if column.nullable}<label class="null-toggle"><input type="checkbox" bind:checked={draft[index].isNull} disabled={!editableColumn(column, row[index])} />NULL</label>{:else}<span class="required">Required</span>{/if}
+          {#if editableColumn(column, row[index]) && (draft[index].isNull !== (row[index] === null) || (!draft[index].isNull && draft[index].text !== draftValue(row[index]).text))}<span class="modified">Modified</span>{/if}
         </div>
       {/each}
     </fieldset>

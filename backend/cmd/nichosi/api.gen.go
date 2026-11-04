@@ -198,7 +198,7 @@ type ConnectionDriver string
 // ConnectionEngine Database product for display; defaults to driver until identified. MySQL-compatible servers are identified after connecting; configured profiles may specify engine for offline display.
 type ConnectionEngine string
 
-// ConnectionInput defines model for ConnectionInput.
+// ConnectionInput For SQLite, database is an absolute path to an existing file on the backend host (or inside its container). Host, port and user are empty/zero; password may be omitted or empty. SQLite files are opened without creating missing files.
 type ConnectionInput struct {
 	Database string                `json:"database"`
 	Driver   ConnectionInputDriver `json:"driver"`
@@ -307,7 +307,7 @@ type RelationNode struct {
 	Table        string `json:"table"`
 }
 
-// RowsPage defines model for RowsPage.
+// RowsPage SQLite BLOB cells use an object with type blob and a lowercase hex field; these values and binary keys are read-only.
 type RowsPage struct {
 	Columns []Column `json:"columns"`
 

@@ -19,6 +19,12 @@
       "database": "database_name",
       "passwordEnv": "NICHOSI_POSTGRES_PASSWORD",
       "readonly": true
+    },
+    {
+      "name": "SQLite demo",
+      "driver": "sqlite",
+      "database": "/sqlite/demo.sqlite",
+      "readonly": false
     }
   ]
 }

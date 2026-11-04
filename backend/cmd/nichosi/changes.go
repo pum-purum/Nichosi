@@ -49,7 +49,7 @@ func (a *app) changeRows(w http.ResponseWriter, r *http.Request, apply bool) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 	table := r.PathValue("table")
-	metadata, err := driver.MySQLEditMetadata(ctx, item.pool, item.Database, table)
+	metadata, err := editMetadata(ctx, item, table)
 	if err != nil {
 		writeChangeError(w, err)
 		return
@@ -65,7 +65,11 @@ func (a *app) changeRows(w http.ResponseWriter, r *http.Request, apply bool) {
 		}
 		updates = append(updates, entry)
 	}
-	statements, err := driver.BuildUpdates(item.Database, table, metadata, updates)
+	database := item.Database
+	if item.Driver == ConnectionDriverSqlite {
+		database = "main"
+	}
+	statements, err := driver.BuildUpdates(database, table, metadata, updates)
 	if err != nil {
 		writeChangeError(w, err)
 		return
@@ -81,7 +85,12 @@ func (a *app) changeRows(w http.ResponseWriter, r *http.Request, apply bool) {
 		writeJSON(w, 200, preview)
 		return
 	}
-	applied, err := driver.MySQLApplyUpdates(ctx, item.pool, item.Database, table, statements)
+	var applied int
+	if item.Driver == ConnectionDriverSqlite {
+		applied, err = driver.SQLiteApplyUpdates(ctx, item.pool, statements)
+	} else {
+		applied, err = driver.MySQLApplyUpdates(ctx, item.pool, item.Database, table, statements)
+	}
 	if err != nil {
 		writeChangeError(w, err)
 		return
@@ -93,7 +102,7 @@ func writeChangeError(w http.ResponseWriter, err error) {
 	case errors.Is(err, driver.ErrRowsObjectNotFound):
 		writeError(w, 404, "table_not_found", "Table not found")
 	case errors.Is(err, driver.ErrReadOnlyTable):
-		writeError(w, 403, "read_only", "Editing requires an InnoDB table with a primary or non-null unique key")
+		writeError(w, 403, "read_only", "Editing requires a transactional table with a primary or non-null unique key")
 	case errors.Is(err, driver.ErrInvalidChange):
 		writeError(w, 400, "invalid_change", "Invalid change operation, columns, values, or row key")
 	case errors.Is(err, driver.ErrRowConflict):

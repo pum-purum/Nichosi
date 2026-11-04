@@ -372,9 +372,9 @@
   <div class="config-instructions">
     <p class="config-source">All database connections are loaded from <code>connections.json</code>.</p>
     <ol class="config-steps">
-      <li><span>01</span><p>Add a connection object and fill in its host, port, user and database name.</p></li>
-      <li><span>02</span><p>Enter the password directly in the <code>password</code> field. This local file is excluded from Git and the Docker image.</p></li>
-      <li><span>03</span><p>Save the file, then restart Nichosi to load the profile.</p></li>
+      <li><span>01</span><p>Add a connection object, choose its driver and fill in the database details. For SQLite, use an absolute file path in database.</p></li>
+      <li><span>02</span><p>For server databases, set <code>passwordEnv</code> to the password environment variable. SQLite needs no password.</p></li>
+      <li><span>03</span><p>For SQLite, mount the existing file into the backend container. Save the profile, then restart Nichosi.</p></li>
     </ol>
     <pre class="config-example"><code>{`{
   "name": "My database",
@@ -384,8 +384,9 @@
   "user": "database_user",
   "database": "database_name",
   "readonly": false,
-  "password": "paste-password-here"
+  "passwordEnv": "NICHOSI_DATABASE_PASSWORD"
 }`}</code></pre>
+    <p>SQLite example: <code>{'{"name":"SQLite demo","driver":"sqlite","database":"/sqlite/demo.sqlite","readonly":false}'}</code>. Host, port and user are not used in saved SQLite profiles.</p>
   </div>
 {/snippet}
 
@@ -453,7 +454,7 @@
           </div>
           <div class="sidebar-footer">
             <button class="connection-status" onclick={() => void disconnect()} aria-label={`Disconnect from ${selectedConnection.name}`} title="Disconnect">
-              <span class="connection-dot"></span><span>Connected</span><span class="sidebar-footer-host">{selectedConnection.host}:{selectedConnection.port}</span><Unplug size={15} />
+              <span class="connection-dot"></span><span>Connected</span><span class="sidebar-footer-host">{selectedConnection.driver === 'sqlite' ? selectedConnection.database : `${selectedConnection.host}:${selectedConnection.port}`}</span><Unplug size={15} />
             </button>
           </div>
         </aside>
@@ -490,7 +491,7 @@
             </div>
             <div id="table-info-panel" role="tabpanel" tabindex="0" aria-labelledby="table-info-tab" class="table-info-panel" hidden={tableTab !== 'info'}>
               {#if tableTab === 'info' && relationName}
-                {#key `${selectedConnection.id}/${activeObjectType}/${relationName}`}<TableMetadata materialized={activeObjectType === 'materialized_view'} preserveSource={selectedConnection.driver === 'postgres'} connectionId={selectedConnection.id} table={relationName} relationType={isViewType(activeObjectType) ? 'view' : 'table'} />{/key}
+                {#key `${selectedConnection.id}/${activeObjectType}/${relationName}`}<TableMetadata materialized={activeObjectType === 'materialized_view'} preserveSource={selectedConnection.driver !== 'mysql'} connectionId={selectedConnection.id} table={relationName} relationType={isViewType(activeObjectType) ? 'view' : 'table'} />{/key}
               {/if}
             </div>
 
@@ -513,7 +514,7 @@
                   <p role="alert">{definitionError}</p>
                   <button onclick={() => selectedObject && selectObject(selectedObject)}>Retry SQL definition</button>
                 {:else if selectedObject.definition}
-                  <ObjectDefinition preserveSource={selectedConnection.driver === 'postgres'} isView={isViewType(selectedObject.type)} definition={selectedObject.definition} name={objectDisplayName(selectedObject)} sqlMode={selectedObject.details?.['SQL mode']} />
+                  <ObjectDefinition preserveSource={selectedConnection.driver !== 'mysql'} isView={isViewType(selectedObject.type)} definition={selectedObject.definition} name={objectDisplayName(selectedObject)} sqlMode={selectedObject.details?.['SQL mode']} />
                 {:else}
                   <p>{selectedObject.details?.['Definition status'] || 'SQL definition is unavailable to this account.'}</p>
                 {/if}
@@ -563,9 +564,10 @@
               <div class="connection-row">
                 <span class="connection-type"><ConnectionIcon driver={connection.driver} engine={connection.engine} /></span>
                 <span class="connection-name" title={connection.name}>{connection.name}</span>
-                <span class="connection-meta" title="Host and port"><Server size={14} /><span>{connection.host}:{connection.port}</span></span>
+                {#if connection.driver !== 'sqlite'}<span class="connection-meta" title="Host and port"><Server size={14} /><span>{connection.host}:{connection.port}</span></span>
                 <span class="connection-meta" title="Database user"><UserRound size={14} /><span>{connection.user}</span></span>
-                <span class="connection-meta" title="Database"><Database size={14} /><span>{connection.database}</span></span>
+                {/if}
+                <span class="connection-meta" title={connection.driver === 'sqlite' ? 'Database file' : 'Database'}><Database size={14} /><span>{connection.database}</span></span>
                 <span class="connection-meta" title="Database size"><HardDrive size={14} /><span>{formatBytes(connection.databaseSizeBytes)}</span></span>
                 <span class="connection-meta connection-time" title="Last connection"><Clock size={14} /><span>{formatDate(connection.lastConnectedAt)}</span></span>
                 {#if connection.readonly}<span class="connection-readonly" title="Read-only connection"><ShieldCheck size={14} /> Read only</span>{/if}

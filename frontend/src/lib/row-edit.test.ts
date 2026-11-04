@@ -57,3 +57,11 @@ describe('record deletion', () => {
     expect(() => rowDeletion(columns, [9007199254740992, ...row.slice(1)], ['id'])).toThrow('precision');
   });
 });
+
+ it('rejects runtime SQLite blob keys and leaves blob values unchanged', () => {
+   const blob = { type: 'blob', hex: '616263' };
+   expect(() => rowDeletion(columns, [blob, 'Alice', '10'], ['id'])).toThrow('Binary row keys');
+   const original = ['1', blob, '10'];
+   const draft = original.map(draftValue); draft[1].text = 'changed';
+   expect(rowChanges(columns, original, draft, ['id'])).toEqual({ changes: [] });
+ });
