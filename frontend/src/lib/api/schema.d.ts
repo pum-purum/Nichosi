@@ -350,15 +350,18 @@ export interface components {
             columns: components["schemas"]["Column"][];
         };
         Schema: {
+            /** @description Object categories supported by this connection. Optional extension categories such as cron are included only when installed and accessible. Empty categories remain visible; unsupported categories are hidden. */
+            supportedObjectTypes: components["schemas"]["ObjectType"][];
             tables: components["schemas"]["TableInfo"][];
             objects: components["schemas"]["DatabaseObject"][];
             /** @description Metadata categories unavailable due to account permissions. */
             warnings?: string[];
         };
+        /** @enum {string} */
+        ObjectType: "table" | "view" | "materialized_view" | "trigger" | "procedure" | "function" | "event" | "role" | "user" | "schema" | "sequence" | "type" | "extension" | "index" | "cron";
         DatabaseObject: {
             name: string;
-            /** @enum {string} */
-            type: "view" | "trigger" | "procedure" | "function" | "event" | "role" | "user";
+            type: components["schemas"]["ObjectType"];
             /** @description Complete server-reported CREATE statement for schema objects, fetched through getObjectDefinition and omitted from schema listings, when visible to the current account. Empty when unavailable; details explains why. For roles, a reconstructed CREATE ROLE statement only; grants and original creation history are not included. User authentication data is never requested or returned. */
             definition?: string;
             /** @description Read-only object metadata. Accounts are server-wide and include their host. Account category is internal for the known mysql.infoschema/mysql.session/mysql.sys accounts at localhost, default-admin for root at localhost, and other otherwise. This name-based recognition is not creation provenance, a privilege check, or the MySQL SYSTEM_USER category. */
@@ -596,7 +599,7 @@ export interface operations {
     getObjectDefinition: {
         parameters: {
             query: {
-                type: "view" | "trigger" | "procedure" | "function" | "event";
+                type: "view" | "materialized_view" | "trigger" | "procedure" | "function" | "event" | "schema" | "sequence" | "type" | "extension" | "index" | "cron";
                 name: string;
             };
             header?: never;

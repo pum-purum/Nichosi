@@ -54,3 +54,35 @@ func TestGetObjectDefinitionPreservesDriverError(t *testing.T) {
 		t.Fatalf("object status did not preserve source error: %s", response.Body.String())
 	}
 }
+
+func TestGetObjectDefinitionDriverAllowlist(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		driver ConnectionDriver
+		kind   string
+		status int
+	}{
+		{"PostgreSQL event forbidden", ConnectionDriverPostgres, "event", http.StatusBadRequest},
+		{"MySQL materialized view forbidden", ConnectionDriverMysql, "materialized_view", http.StatusBadRequest},
+		{"MySQL cron forbidden", ConnectionDriverMysql, "cron", http.StatusBadRequest},
+		{"PostgreSQL materialized view accepted", ConnectionDriverPostgres, "materialized_view", http.StatusBadGateway},
+		{"PostgreSQL schema accepted", ConnectionDriverPostgres, "schema", http.StatusBadGateway},
+		{"PostgreSQL sequence accepted", ConnectionDriverPostgres, "sequence", http.StatusBadGateway},
+		{"PostgreSQL type accepted", ConnectionDriverPostgres, "type", http.StatusBadGateway},
+		{"PostgreSQL extension accepted", ConnectionDriverPostgres, "extension", http.StatusBadGateway},
+		{"PostgreSQL index accepted", ConnectionDriverPostgres, "index", http.StatusBadGateway},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pool := sql.OpenDB(tableCheckConnector{err: errors.New("test query reached")})
+			defer pool.Close()
+			application := &app{connections: []*profile{{Connection: Connection{Id: "test", Driver: tc.driver}, pool: pool}}}
+			request := httptest.NewRequest(http.MethodGet, "/?type="+tc.kind+"&name=object", nil)
+			request.SetPathValue("connId", "test")
+			response := httptest.NewRecorder()
+			application.getObjectDefinition(response, request)
+			if response.Code != tc.status {
+				t.Fatalf("status=%d want %d: %s", response.Code, tc.status, response.Body.String())
+			}
+		})
+	}
+}

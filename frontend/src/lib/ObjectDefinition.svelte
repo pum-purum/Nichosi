@@ -3,9 +3,9 @@
   import { compactDefinition, formatDefinition, simplifyViewDefinition } from './sql-definition';
   import { highlightSQL } from './sql-highlight';
 
-  let { definition, name, sqlMode, isView = false }: { definition: string; name: string; sqlMode?: string; isView?: boolean } = $props();
-  const script = $derived(isView ? simplifyViewDefinition(definition) : definition);
-  const formatted = $derived(formatDefinition(script, sqlMode));
+  let { definition, name, sqlMode, isView = false, preserveSource = false }: { definition: string; name: string; sqlMode?: string; isView?: boolean; preserveSource?: boolean } = $props();
+  const script = $derived(!preserveSource && isView ? simplifyViewDefinition(definition) : definition);
+  const formatted = $derived(preserveSource ? { sql: script, formatted: true } : formatDefinition(script, sqlMode));
   const displayedSQL = $derived(formatted.sql);
   const highlightedSQL = $derived(highlightSQL(displayedSQL));
   let copied = $state(false);
@@ -16,7 +16,7 @@
   async function copyDefinition() {
     const attempt = ++copyAttempt;
     try {
-      await navigator.clipboard.writeText(compactDefinition(script, sqlMode));
+      await navigator.clipboard.writeText(preserveSource ? script : compactDefinition(script, sqlMode));
       if (attempt === copyAttempt) { copied = true; copyError = ''; }
     } catch {
       if (attempt === copyAttempt) copyError = 'Could not copy SQL. Select the code and copy it manually.';

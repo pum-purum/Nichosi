@@ -66,14 +66,83 @@ func TestPostgresIntegration(t *testing.T) {
 		}
 		break
 	}
+
+	catalog, err := PostgresCatalog(ctx, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, kind := range catalog.SupportedObjectTypes {
+		if kind == "event" {
+			t.Fatal("MySQL events must not be advertised by PostgreSQL")
+		}
+	}
+	found := map[string]int{}
 	for _, o := range objects {
-		definition, err := PostgresObjectDefinition(ctx, db, "view", o.Name)
+		found[o.Type]++
+		if o.Type == "user" {
+			if o.Definition != "" {
+				t.Fatal("account authentication definition returned")
+			}
+			continue
+		}
+		if o.Type == "role" {
+			if !strings.HasPrefix(o.Definition, "CREATE ROLE ") {
+				t.Fatal("role reconstruction unavailable")
+			}
+			continue
+		}
+		definition, err := PostgresObjectDefinition(ctx, db, o.Type, o.Name)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("%s %s: %v", o.Type, o.Name, err)
 		}
-		if !strings.HasPrefix(definition.Definition, "CREATE ") {
-			t.Fatal("missing view definition")
+		if definition.Definition == "" && definition.Details["Definition status"] == "" {
+			t.Fatalf("missing definition availability for %s", o.Name)
 		}
-		break
+		if o.Type == "view" || o.Type == "materialized_view" {
+			metadata, err := PostgresMetadata(ctx, db, o.Name, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if metadata.Definition != definition.Definition || metadata.Details["Definition source"] == "" {
+				t.Fatal("view metadata lost definition or source")
+			}
+			if len(metadata.Indexes) != 0 || len(metadata.ForeignKeys) != 0 || len(metadata.Triggers) != 0 {
+				t.Fatal("view metadata violated relation envelope")
+			}
+		}
+	}
+	fixture := false
+	for _, table := range tables {
+		if table.Name == `"odd.schema"."odd.table"` {
+			fixture = true
+		}
+	}
+	if fixture {
+		for _, kind := range []string{"user", "role", "trigger", "procedure", "function", "schema", "sequence", "type", "extension", "index", "view", "materialized_view"} {
+			if found[kind] == 0 {
+				t.Errorf("missing fixture category %s", kind)
+			}
+		}
+		overloads := map[string]string{}
+		for _, o := range objects {
+			if o.Type == "function" && strings.HasPrefix(o.Name, `"odd.schema".echo(`) {
+				definition, err := PostgresObjectDefinition(ctx, db, o.Type, o.Name)
+				if err != nil {
+					t.Fatal(err)
+				}
+				overloads[o.Name] = definition.Definition
+			}
+		}
+		if len(overloads) != 2 {
+			t.Fatalf("overloaded routines collided: %v", overloads)
+		}
+		for name, definition := range overloads {
+			if strings.Contains(name, "integer") && !strings.Contains(definition, "RETURNS integer") {
+				t.Fatal("wrong integer overload")
+			}
+			if strings.Contains(name, "text") && !strings.Contains(definition, "RETURNS text") {
+				t.Fatal("wrong text overload")
+			}
+		}
 	}
 }

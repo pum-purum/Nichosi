@@ -48,8 +48,19 @@ PostgreSQL profiles use `driver: "postgres"`. Local PostgreSQL connections curre
 use TLS disabled and support read-only browsing; PostgreSQL ChangeSets are not yet
 available. Keep this setup on a trusted local network.
 Tables and views are listed across accessible user schemas with qualified names
-such as `public.events`. Materialized views appear under Views. Functions,
-procedures, triggers and roles are not yet listed in the PostgreSQL object tree.
+such as `public.events`. Materialized views have their own category. The PostgreSQL
+object browser also lists users (LOGIN roles), roles (NOLOGIN), triggers, procedures,
+functions, schemas, sequences, types, extensions and indexes. Overloaded routines
+include their identity arguments. Role metadata never includes authentication data.
+
+The API reports `supportedObjectTypes`; the navigation displays those categories
+even when empty and hides unsupported categories. PostgreSQL has no MySQL Events
+category. Cron jobs are shown only when the optional pg_cron extension is installed
+and accessible in the connected database. Nichosi does not install extensions or
+create scheduled jobs. Permission failures appear as metadata warnings.
+
+Object details are read-only. SQL definitions are fetched on demand where available;
+reconstructed statements and unavailable definitions are identified in metadata.
 Table metadata includes columns, indexes and foreign keys; a complete CREATE TABLE
 statement is not reconstructed.
 

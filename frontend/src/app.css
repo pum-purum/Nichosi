@@ -374,3 +374,13 @@ kbd { flex: 0 0 auto; padding: 2px 4px; border: 1px solid #303930; border-radius
 .filter-in-values input { width: 120px; }
 .filter-help, .filter-error { margin: 8px 0 0; font-size: 12px; line-height: 1.5; color: var(--muted); }
 .filter-error { color: #f59d9d; }
+
+.app-rail { overflow-y: auto; }
+.app-rail .rail-button { flex-shrink: 0; }
+.object-properties { margin: 24px 0 0; font-size: 13px; }
+.object-properties > div { display: grid; grid-template-columns: minmax(120px, 180px) minmax(0, 1fr); gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.object-properties dt { color: #a8aeaa; }
+.object-properties dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.object-main { flex-direction: column; overflow-y: auto; }
+.object-main > .metadata-warning { flex: none; }
+.object-properties dd { color: var(--text); }

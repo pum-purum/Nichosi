@@ -62,13 +62,13 @@ paths:
   /api/connections/{connId}/object-definition:
     get:
       operationId: getObjectDefinition
-      description: Fetch the full current CREATE statement for one schema object on demand with a ten-second timeout. Account definitions are provided only through safe schema metadata.
+      description: Fetch a SQL definition or explicit availability metadata for one schema object on demand with a ten-second timeout. Reconstructed definitions are identified in details. Account definitions are provided only through safe schema metadata.
       parameters:
         - { $ref: "#/components/parameters/ConnId" }
         - name: type
           in: query
           required: true
-          schema: { type: string, enum: [view, trigger, procedure, function, event] }
+          schema: { type: string, enum: [view, materialized_view, trigger, procedure, function, event, schema, sequence, type, extension, index, cron] }
         - name: name
           in: query
           required: true
@@ -369,8 +369,12 @@ components:
           items: { $ref: "#/components/schemas/Column" }
     Schema:
       type: object
-      required: [tables, objects]
+      required: [tables, objects, supportedObjectTypes]
       properties:
+        supportedObjectTypes:
+          type: array
+          items: { $ref: "#/components/schemas/ObjectType" }
+          description: Object categories supported by this connection. Optional extension categories such as cron are included only when installed and accessible. Empty categories remain visible; unsupported categories are hidden.
         tables:
           type: array
           items: { $ref: "#/components/schemas/TableInfo" }
@@ -381,15 +385,18 @@ components:
           type: array
           items: { type: string }
           description: Metadata categories unavailable due to account permissions.
+    ObjectType:
+      type: string
+      enum: [table, view, materialized_view, trigger, procedure, function, event, role, user, schema, sequence, type, extension, index, cron]
     DatabaseObject:
       type: object
       required: [name, type]
       properties:
         name: { type: string }
-        type: { type: string, enum: [view, trigger, procedure, function, event, role, user] }
+        type: { $ref: "#/components/schemas/ObjectType" }
         definition:
           type: string
-          description: Complete server-reported CREATE statement for schema objects, fetched through getObjectDefinition and omitted from schema listings, when visible to the current account. Empty when unavailable; details explains why. For roles, a reconstructed CREATE ROLE statement only; grants and original creation history are not included. User authentication data is never requested or returned.
+          description: SQL definition fetched through getObjectDefinition when visible to the current account. Empty when unavailable; details explains why and identifies reconstructed statements. For roles, a reconstructed CREATE ROLE statement only; grants and original creation history are not included. User authentication data is never requested or returned.
         details:
           type: object
           additionalProperties: { type: string }

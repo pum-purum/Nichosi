@@ -3,7 +3,7 @@
   import ObjectDefinition from './ObjectDefinition.svelte';
   import type { components } from './api/schema';
 
-  let { connectionId, table, relationType = 'table' }: { connectionId: string; table: string; relationType?: 'table' | 'view' } = $props();
+  let { connectionId, table, relationType = 'table', materialized = false, preserveSource = false }: { connectionId: string; table: string; relationType?: 'table' | 'view'; materialized?: boolean; preserveSource?: boolean } = $props();
   type Metadata = components['schemas']['TableMetadata'];
   let metadata = $state<Metadata | null>(null);
   let loading = $state(true);
@@ -12,8 +12,8 @@
   const groups = $derived(metadata ? [
     { title: 'Columns', rows: metadata.columns, preferred: ['Name', 'Type', 'Default', 'Nullable', 'Extra', 'Key'] },
     ...(relationType === 'table' ? [
-      { title: 'Keys and indexes', rows: groupMetadataKeys(metadata.indexes), preferred: ['Name', 'Columns', 'Kind', 'Type'] },
-      { title: 'Foreign keys', rows: groupMetadataKeys(metadata.foreignKeys, true), preferred: ['Name', 'Columns', 'References', 'On update', 'On delete'] },
+      { title: 'Keys and indexes', rows: preserveSource ? metadata.indexes : groupMetadataKeys(metadata.indexes), preferred: ['Name', 'Columns', 'Kind', 'Type'] },
+      { title: 'Foreign keys', rows: preserveSource ? metadata.foreignKeys : groupMetadataKeys(metadata.foreignKeys, true), preferred: ['Name', 'Columns', 'References', 'On update', 'On delete'] },
       { title: 'Triggers', rows: metadata.triggers, preferred: ['Name', 'Timing', 'Event', 'Statement'] },
     ] : []),
   ] : []);
@@ -47,7 +47,7 @@
   {:else if metadata}
     {#each metadata.warnings as warning}<p class="metadata-warning" role="status">{warning}</p>{/each}
     <h2>Overview</h2>
-    <p class="estimate-note">{relationType === 'view' ? 'Views have no separate table storage. Properties reflect the last load.' : 'Row counts and storage sizes are server estimates. Metadata reflects the last load.'}</p>
+    <p class="estimate-note">{materialized ? 'Materialized views store query results on disk. Properties reflect the last load; stored rows change when the view is refreshed.' : relationType === 'view' ? 'Views have no separate table storage. Properties reflect the last load.' : 'Row counts and storage sizes are server estimates. Metadata reflects the last load.'}</p>
     <dl>{#each Object.entries(metadata.details) as [label, value]}<div><dt>{label}</dt><dd>{value || '—'}</dd></div>{/each}</dl>
     {#each groups as group}
       <section class="metadata-group" aria-label={group.title}>
@@ -59,7 +59,7 @@
         {:else}<p>No entries returned. Any availability limits are listed above.</p>{/if}
       </section>
     {/each}
-    {#if metadata.definition}<ObjectDefinition definition={metadata.definition} name={table} isView={relationType === 'view'} sqlMode={metadata.details['SQL mode']} />{:else}<h2>SQL definition</h2><p>CREATE {relationType === 'view' ? 'VIEW' : 'TABLE'} is unavailable. See availability warnings above.</p>{/if}
+    {#if metadata.definition}<ObjectDefinition {preserveSource} definition={metadata.definition} name={table} isView={relationType === 'view'} sqlMode={metadata.details['SQL mode']} />{:else}<h2>SQL definition</h2><p>CREATE {materialized ? 'MATERIALIZED VIEW' : relationType === 'view' ? 'VIEW' : 'TABLE'} is unavailable. See availability warnings above.</p>{/if}
   {/if}
 </section>
 

@@ -32,17 +32,6 @@ const (
 	ConnectionInputDriverSqlite   ConnectionInputDriver = "sqlite"
 )
 
-// Defines values for DatabaseObjectType.
-const (
-	DatabaseObjectTypeEvent     DatabaseObjectType = "event"
-	DatabaseObjectTypeFunction  DatabaseObjectType = "function"
-	DatabaseObjectTypeProcedure DatabaseObjectType = "procedure"
-	DatabaseObjectTypeRole      DatabaseObjectType = "role"
-	DatabaseObjectTypeTrigger   DatabaseObjectType = "trigger"
-	DatabaseObjectTypeUser      DatabaseObjectType = "user"
-	DatabaseObjectTypeView      DatabaseObjectType = "view"
-)
-
 // Defines values for FilterConnector.
 const (
 	And FilterConnector = "and"
@@ -64,6 +53,25 @@ const (
 	NotNull FilterOp = "notNull"
 )
 
+// Defines values for ObjectType.
+const (
+	ObjectTypeCron             ObjectType = "cron"
+	ObjectTypeEvent            ObjectType = "event"
+	ObjectTypeExtension        ObjectType = "extension"
+	ObjectTypeFunction         ObjectType = "function"
+	ObjectTypeIndex            ObjectType = "index"
+	ObjectTypeMaterializedView ObjectType = "materialized_view"
+	ObjectTypeProcedure        ObjectType = "procedure"
+	ObjectTypeRole             ObjectType = "role"
+	ObjectTypeSchema           ObjectType = "schema"
+	ObjectTypeSequence         ObjectType = "sequence"
+	ObjectTypeTable            ObjectType = "table"
+	ObjectTypeTrigger          ObjectType = "trigger"
+	ObjectTypeType             ObjectType = "type"
+	ObjectTypeUser             ObjectType = "user"
+	ObjectTypeView             ObjectType = "view"
+)
+
 // Defines values for OrderByDirection.
 const (
 	Asc  OrderByDirection = "asc"
@@ -79,11 +87,18 @@ const (
 
 // Defines values for GetObjectDefinitionParamsType.
 const (
-	GetObjectDefinitionParamsTypeEvent     GetObjectDefinitionParamsType = "event"
-	GetObjectDefinitionParamsTypeFunction  GetObjectDefinitionParamsType = "function"
-	GetObjectDefinitionParamsTypeProcedure GetObjectDefinitionParamsType = "procedure"
-	GetObjectDefinitionParamsTypeTrigger   GetObjectDefinitionParamsType = "trigger"
-	GetObjectDefinitionParamsTypeView      GetObjectDefinitionParamsType = "view"
+	GetObjectDefinitionParamsTypeCron             GetObjectDefinitionParamsType = "cron"
+	GetObjectDefinitionParamsTypeEvent            GetObjectDefinitionParamsType = "event"
+	GetObjectDefinitionParamsTypeExtension        GetObjectDefinitionParamsType = "extension"
+	GetObjectDefinitionParamsTypeFunction         GetObjectDefinitionParamsType = "function"
+	GetObjectDefinitionParamsTypeIndex            GetObjectDefinitionParamsType = "index"
+	GetObjectDefinitionParamsTypeMaterializedView GetObjectDefinitionParamsType = "materialized_view"
+	GetObjectDefinitionParamsTypeProcedure        GetObjectDefinitionParamsType = "procedure"
+	GetObjectDefinitionParamsTypeSchema           GetObjectDefinitionParamsType = "schema"
+	GetObjectDefinitionParamsTypeSequence         GetObjectDefinitionParamsType = "sequence"
+	GetObjectDefinitionParamsTypeTrigger          GetObjectDefinitionParamsType = "trigger"
+	GetObjectDefinitionParamsTypeType             GetObjectDefinitionParamsType = "type"
+	GetObjectDefinitionParamsTypeView             GetObjectDefinitionParamsType = "view"
 )
 
 // ApplyResult defines model for ApplyResult.
@@ -194,11 +209,8 @@ type DatabaseObject struct {
 	// Details Read-only object metadata. Accounts are server-wide and include their host. Account category is internal for the known mysql.infoschema/mysql.session/mysql.sys accounts at localhost, default-admin for root at localhost, and other otherwise. This name-based recognition is not creation provenance, a privilege check, or the MySQL SYSTEM_USER category.
 	Details *map[string]string `json:"details,omitempty"`
 	Name    string             `json:"name"`
-	Type    DatabaseObjectType `json:"type"`
+	Type    ObjectType         `json:"type"`
 }
-
-// DatabaseObjectType defines model for DatabaseObject.Type.
-type DatabaseObjectType string
 
 // Error defines model for Error.
 type Error struct {
@@ -236,6 +248,9 @@ type ForeignRef struct {
 type Health struct {
 	Status string `json:"status"`
 }
+
+// ObjectType defines model for ObjectType.
+type ObjectType string
 
 // OrderBy defines model for OrderBy.
 type OrderBy struct {
@@ -301,7 +316,10 @@ type RowsQuery struct {
 // Schema defines model for Schema.
 type Schema struct {
 	Objects []DatabaseObject `json:"objects"`
-	Tables  []TableInfo      `json:"tables"`
+
+	// SupportedObjectTypes Object categories supported by this connection. Optional extension categories such as cron are included only when installed and accessible. Empty categories remain visible; unsupported categories are hidden.
+	SupportedObjectTypes []ObjectType `json:"supportedObjectTypes"`
+	Tables               []TableInfo  `json:"tables"`
 
 	// Warnings Metadata categories unavailable due to account permissions.
 	Warnings *[]string `json:"warnings,omitempty"`

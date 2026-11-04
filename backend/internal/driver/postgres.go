@@ -57,44 +57,10 @@ type PostgresTable struct {
 const pgRelationName = `quote_ident(n.nspname)||'.'||quote_ident(c.relname)`
 const pgUserNamespace = `n.nspname NOT IN ('pg_catalog','information_schema') AND n.nspname NOT LIKE 'pg_toast%' AND n.nspname NOT LIKE 'pg_temp_%'`
 
+// PostgresSchema preserves the schema reader used by integration callers.
 func PostgresSchema(ctx context.Context, db *sql.DB) ([]PostgresTable, []Object, []string, error) {
-	tables := []PostgresTable{}
-	objects := []Object{}
-	warnings := []string{}
-	rows, err := db.QueryContext(ctx, `SELECT `+pgRelationName+`, GREATEST(c.reltuples,0)::bigint, pg_table_size(c.oid), pg_indexes_size(c.oid), c.relkind FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE `+pgUserNamespace+` AND c.relkind IN ('r','p','v','m') AND has_schema_privilege(n.oid,'USAGE') AND has_table_privilege(c.oid,'SELECT') ORDER BY n.nspname,c.relname LIMIT 1001`)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	for rows.Next() {
-		if len(tables)+len(objects) == 1000 {
-			warnings = append(warnings, "Relations are limited to 1000 entries.")
-			break
-		}
-		var t PostgresTable
-		var kind string
-		if err := rows.Scan(&t.Name, &t.RowsEstimate, &t.DataBytes, &t.IndexBytes, &kind); err != nil {
-			rows.Close()
-			return nil, nil, nil, err
-		}
-		if kind == "v" || kind == "m" {
-			objects = append(objects, Object{Name: t.Name, Type: "view", Details: map[string]string{"Relation kind": kind}})
-		} else {
-			tables = append(tables, t)
-		}
-	}
-	if err := rows.Err(); err != nil {
-		rows.Close()
-		return nil, nil, nil, err
-	}
-	rows.Close()
-	for i := range tables {
-		columns, err := PostgresColumns(ctx, db, tables[i].Name, false)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		tables[i].Columns = columns
-	}
-	return tables, objects, warnings, nil
+	catalog, err := PostgresCatalog(ctx, db)
+	return catalog.Tables, catalog.Objects, catalog.Warnings, err
 }
 
 func pgRelation(ctx context.Context, db *sql.DB, name string, view bool) (int64, string, error) {
@@ -269,33 +235,16 @@ func PostgresMetadata(ctx context.Context, db *sql.DB, name string, view bool) (
 		}
 	}
 	if view {
-		object, err := PostgresObjectDefinition(ctx, db, "view", name)
+		object, err := postgresViewDefinition(ctx, db, "", name)
 		if err != nil {
 			return result, err
 		}
 		result.Definition = object.Definition
+		for key, value := range object.Details {
+			result.Details[key] = value
+		}
 	} else {
 		result.Warnings = append(result.Warnings, "PostgreSQL does not expose a complete CREATE TABLE statement; columns, indexes and constraints are shown separately.")
 	}
-	return result, nil
-}
-func PostgresObjectDefinition(ctx context.Context, db *sql.DB, kind, name string) (Object, error) {
-	result := Object{Name: name, Type: kind, Details: map[string]string{}}
-	if kind != "view" {
-		return result, errors.New("unsupported PostgreSQL object type")
-	}
-	oid, source, err := pgRelation(ctx, db, name, true)
-	if err != nil {
-		return result, err
-	}
-	var definition, relkind string
-	if err := db.QueryRowContext(ctx, `SELECT pg_get_viewdef(oid,true),relkind FROM pg_class WHERE oid=$1 LIMIT 1`, oid).Scan(&definition, &relkind); err != nil {
-		return result, err
-	}
-	prefix := "CREATE VIEW "
-	if relkind == "m" {
-		prefix = "CREATE MATERIALIZED VIEW "
-	}
-	result.Definition = prefix + source + " AS\n" + definition
 	return result, nil
 }

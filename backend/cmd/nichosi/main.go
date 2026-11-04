@@ -214,12 +214,16 @@ func (a *app) getSchema(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 	if item.Driver == ConnectionDriverPostgres {
-		tables, objects, warnings, err := driver.PostgresSchema(ctx, item.pool)
+		catalog, err := driver.PostgresCatalog(ctx, item.pool)
+		tables, objects, warnings := catalog.Tables, catalog.Objects, catalog.Warnings
 		if err != nil {
 			writeError(w, 502, "metadata_failed", err.Error())
 			return
 		}
-		schema := Schema{Tables: []TableInfo{}, Objects: []DatabaseObject{}, Warnings: &warnings}
+		schema := Schema{Tables: []TableInfo{}, Objects: []DatabaseObject{}, Warnings: &warnings, SupportedObjectTypes: []ObjectType{}}
+		for _, kind := range catalog.SupportedObjectTypes {
+			schema.SupportedObjectTypes = append(schema.SupportedObjectTypes, ObjectType(kind))
+		}
 		for _, t := range tables {
 			table := TableInfo{Name: t.Name, RowsEstimate: t.RowsEstimate, DataBytes: t.DataBytes, IndexBytes: t.IndexBytes, Columns: []Column{}}
 			for _, c := range t.Columns {
@@ -229,7 +233,7 @@ func (a *app) getSchema(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, o := range objects {
 			details := o.Details
-			schema.Objects = append(schema.Objects, DatabaseObject{Name: o.Name, Type: DatabaseObjectType(o.Type), Details: &details})
+			schema.Objects = append(schema.Objects, DatabaseObject{Name: o.Name, Type: ObjectType(o.Type), Definition: &o.Definition, Details: &details})
 		}
 		writeJSON(w, 200, schema)
 		return
@@ -240,7 +244,7 @@ func (a *app) getSchema(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer rows.Close()
-	schema := Schema{Tables: []TableInfo{}, Objects: []DatabaseObject{}}
+	schema := Schema{Tables: []TableInfo{}, Objects: []DatabaseObject{}, SupportedObjectTypes: []ObjectType{ObjectTypeTable, ObjectTypeView, ObjectTypeTrigger, ObjectTypeProcedure, ObjectTypeFunction, ObjectTypeEvent, ObjectTypeRole, ObjectTypeUser}}
 	for rows.Next() {
 		var table TableInfo
 		if err := rows.Scan(&table.Name, &table.RowsEstimate, &table.DataBytes, &table.IndexBytes); err != nil {
@@ -291,7 +295,7 @@ func (a *app) getSchema(w http.ResponseWriter, r *http.Request) {
 	for _, object := range objects {
 		definition := object.Definition
 		details := object.Details
-		schema.Objects = append(schema.Objects, DatabaseObject{Name: object.Name, Type: DatabaseObjectType(object.Type), Definition: &definition, Details: &details})
+		schema.Objects = append(schema.Objects, DatabaseObject{Name: object.Name, Type: ObjectType(object.Type), Definition: &definition, Details: &details})
 	}
 	writeJSON(w, http.StatusOK, schema)
 }
@@ -299,7 +303,7 @@ func (a *app) getSchema(w http.ResponseWriter, r *http.Request) {
 func (a *app) getObjectDefinition(w http.ResponseWriter, r *http.Request) {
 	kind, name := r.URL.Query().Get("type"), r.URL.Query().Get("name")
 	switch kind {
-	case "view", "trigger", "procedure", "function", "event":
+	case "view", "materialized_view", "trigger", "procedure", "function", "event", "schema", "sequence", "type", "extension", "index", "cron":
 	default:
 		writeError(w, http.StatusBadRequest, "invalid_object_type", "A schema object type is required")
 		return
@@ -319,6 +323,10 @@ func (a *app) getObjectDefinition(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "disconnected", "Connection is closed")
 		return
 	}
+	if item.Driver == ConnectionDriverPostgres && kind == "event" || item.Driver != ConnectionDriverPostgres && kind != "view" && kind != "trigger" && kind != "procedure" && kind != "function" && kind != "event" {
+		writeError(w, http.StatusBadRequest, "invalid_object_type", "Object type is not supported by this connection")
+		return
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 	var object driver.Object
@@ -332,7 +340,7 @@ func (a *app) getObjectDefinition(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadGateway, "metadata_failed", err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, DatabaseObject{Name: object.Name, Type: DatabaseObjectType(object.Type), Definition: &object.Definition, Details: &object.Details})
+	writeJSON(w, http.StatusOK, DatabaseObject{Name: object.Name, Type: ObjectType(object.Type), Definition: &object.Definition, Details: &object.Details})
 }
 
 func (a *app) queryRows(w http.ResponseWriter, r *http.Request)     { a.queryObjectRows(w, r, false) }
