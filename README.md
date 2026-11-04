@@ -82,6 +82,7 @@ not `MYSQL_*` environment variables.
 | `NICHOSI_ADDR` | HTTP listen address | `127.0.0.1:8080` |
 | `NICHOSI_ADMIN_TOKEN` | Bearer token for API authentication; at least 24 characters required for non-loopback binding unless local preview is enabled | Unset |
 | `NICHOSI_CONNECTIONS_FILE` | JSON connection profile file loaded at startup | No file loaded |
+| `NICHOSI_METADATA_FILE` | File for cached database sizes and last successful connection times | Persistence disabled |
 | `NICHOSI_LOCAL_PREVIEW` | Set to `true` to allow non-loopback binding without an admin token for local Docker preview | Disabled |
 | `NICHOSI_TEST_DSN` | MySQL DSN used only by optional integration tests | Tests skipped |
 
@@ -134,3 +135,5 @@ Click a column heading in the Data grid to sort all rows on the server. Click ag
 reverse the direction. Sorting returns to page one and persists across pagination
 and page-size changes; selecting another table or view resets it. MySQL determines
 NULL ordering and text collation. Primary keys break ties when available.
+
+Database sizes and last successful connection times are stored in the `nichosi-data` Docker volume. They survive container recreation and `make down`; `docker compose down -v` deletes them. The metadata file contains no passwords or DSNs. Configured connections start disconnected and display their cached observations until the next successful connection. For local runs, set `NICHOSI_METADATA_FILE` to a writable file path to enable persistence.

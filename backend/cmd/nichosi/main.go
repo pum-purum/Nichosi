@@ -49,6 +49,7 @@ type connectionConfig struct {
 type app struct {
 	mu          sync.RWMutex
 	connections []*profile
+	metadata    connectionMetadataStore
 	token       string
 	static      http.Handler
 }
@@ -68,7 +69,13 @@ func main() {
 		os.Exit(1)
 	}
 	application := &app{token: token, static: http.FileServer(http.FS(static))}
+	if err := application.metadata.load(os.Getenv("NICHOSI_METADATA_FILE")); err != nil {
+		slog.Warn("could not load connection metadata; starting with empty metadata", "error", err)
+	}
 	application.loadConfiguredConnections()
+	for _, item := range application.connections {
+		application.metadata.restore(&item.Connection)
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -141,6 +148,7 @@ func (a *app) createConnection(w http.ResponseWriter, r *http.Request) {
 	a.mu.Lock()
 	a.connections = append(a.connections, item)
 	a.mu.Unlock()
+	a.persistMetadata(item.Connection)
 	writeJSON(w, http.StatusCreated, item)
 }
 
@@ -181,6 +189,7 @@ func (a *app) connectConnection(w http.ResponseWriter, r *http.Request) {
 		item.input.Readonly = opened.input.Readonly
 	}
 	item.Connected = true
+	a.persistMetadata(item.Connection)
 	writeJSON(w, http.StatusOK, item.Connection)
 }
 

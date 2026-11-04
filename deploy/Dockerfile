@@ -13,10 +13,12 @@ COPY backend/go.mod backend/go.sum* ./
 RUN go mod download
 COPY backend/ ./
 COPY --from=web /src/frontend/dist ./cmd/nichosi/static
+RUN mkdir -p /out/data && chown 65532:65532 /out/data
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/nichosi ./cmd/nichosi
 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/nichosi /nichosi
+COPY --from=build --chown=65532:65532 /out/data /data
 ENV NICHOSI_ADDR=0.0.0.0:8080
 EXPOSE 8080
 ENTRYPOINT ["/nichosi"]

@@ -8,6 +8,7 @@ services:
     environment:
       NICHOSI_ADDR: 0.0.0.0:8080
       NICHOSI_LOCAL_PREVIEW: "true"
+      NICHOSI_METADATA_FILE: /data/connection-metadata.json
       NICHOSI_CONNECTIONS_FILE: /config/connections.json
     env_file:
       - path: ../.env
@@ -15,5 +16,9 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
+      - nichosi-data:/data
       - ../connections.json:/config/connections.json:ro
     restart: unless-stopped
+
+volumes:
+  nichosi-data:
