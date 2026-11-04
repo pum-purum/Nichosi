@@ -8,9 +8,21 @@ export const objectSectionLabels: Record<ObjectType, string> = {
   type: 'Types', extension: 'Extensions', index: 'Indexes', cron: 'Cron jobs',
 };
 
-export function objectSectionsFor(types: readonly ObjectType[]) {
+type Driver = components['schemas']['Connection']['driver'];
+
+export function objectSectionType(type: ObjectType, driver?: Driver): ObjectType {
+  return driver === 'postgres' && type === 'role' ? 'user' : type;
+}
+
+export function postgresAccountBadge(object: components['schemas']['DatabaseObject']) {
+  if (object.type !== 'role' || object.details?.['Login allowed'] !== 'false') return null;
+  return { label: 'Built-in', title: 'NOLOGIN role grouped as Built-in. Login is disabled; this does not imply that PostgreSQL created the role.' };
+}
+
+export function objectSectionsFor(types: readonly ObjectType[], driver?: Driver) {
+  const groupedTypes = types.map(type => objectSectionType(type, driver));
   return (Object.keys(objectSectionLabels) as ObjectType[])
-    .filter(type => types.includes(type))
+    .filter(type => groupedTypes.includes(type))
     .map(type => ({ type, label: objectSectionLabels[type] }));
 }
 

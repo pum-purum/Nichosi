@@ -1,7 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { isViewType, objectSectionsFor } from './object-sections';
+import { isViewType, objectSectionsFor, objectSectionType, postgresAccountBadge } from './object-sections';
 
 describe('database object capabilities', () => {
+  it('groups PostgreSQL LOGIN and NOLOGIN accounts into Users with a combined count source', () => {
+    expect(objectSectionsFor(['role', 'user', 'table'], 'postgres').map(section => section.type))
+      .toEqual(['table', 'user']);
+    expect(['role', 'user'].map(type => objectSectionType(type as 'role' | 'user', 'postgres')))
+      .toEqual(['user', 'user']);
+    expect(objectSectionType('role', 'mysql')).toBe('role');
+  });
+  it('marks only PostgreSQL NOLOGIN accounts as Built-in with an explicit origin caveat', () => {
+    const badge = postgresAccountBadge({ name: 'custom_group', type: 'role', details: { 'Login allowed': 'false' } });
+    expect(badge?.label).toBe('Built-in');
+    expect(badge?.title).toContain('does not imply');
+    expect(postgresAccountBadge({ name: 'postgres', type: 'user', details: { 'Login allowed': 'true' } })).toBeNull();
+  });
   it('keeps supported empty categories and omits unsupported MySQL events for PostgreSQL', () => {
     const sections = objectSectionsFor(['table', 'view', 'role', 'user', 'materialized_view', 'sequence']);
     expect(sections.map(section => section.type)).toEqual(['table', 'view', 'materialized_view', 'role', 'user', 'sequence']);

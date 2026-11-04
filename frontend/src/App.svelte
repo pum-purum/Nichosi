@@ -10,7 +10,7 @@
   import DataError from './lib/DataError.svelte';
   import RowFilter from './lib/RowFilter.svelte';
   import ObjectIcon from './lib/ObjectIcon.svelte';
-  import { isViewType, objectSectionsFor, type ObjectType } from './lib/object-sections';
+  import { isViewType, objectSectionsFor, objectSectionType, postgresAccountBadge, type ObjectType } from './lib/object-sections';
   import { matchesObjectFilter } from './lib/object-filter';
   import { recoveryConnection } from './lib/connection-recovery';
   import type { components } from './lib/api/schema';
@@ -20,12 +20,12 @@
   type RowsPage = components['schemas']['RowsPage'];
   type DatabaseObject = components['schemas']['DatabaseObject'];
   let supportedObjectTypes = $state<ObjectType[]>([]);
-  const objectSections = $derived(objectSectionsFor(supportedObjectTypes));
 
   let connections = $state<Connection[]>([]);
   let error = $state('');
   let loading = $state(true);
   let selectedConnection = $state<Connection | null>(null);
+  const objectSections = $derived(objectSectionsFor(supportedObjectTypes, selectedConnection?.driver));
   let selectedTable = $state('');
   let tableTab = $state<'data' | 'info'>('data');
   let activeObjectType = $state<ObjectType>('table');
@@ -40,7 +40,7 @@
   let objects = $state<components['schemas']['DatabaseObject'][]>([]);
   let filterInput = $state<HTMLInputElement>();
   const filteredTables = $derived(tables.filter(table => matchesObjectFilter(tableSearch, table.name)));
-  const filteredObjects = $derived(objects.filter(object => object.type === activeObjectType && matchesObjectFilter(tableSearch, objectDisplayName(object), object.name)));
+  const filteredObjects = $derived(objects.filter(object => objectSectionType(object.type, selectedConnection?.driver) === activeObjectType && matchesObjectFilter(tableSearch, objectDisplayName(object), object.name)));
   const filteredCount = $derived(activeObjectType === 'table' ? filteredTables.length : filteredObjects.length);
   const sectionLabel = $derived(objectSections.find(section => section.type === activeObjectType)?.label ?? 'Objects');
   function clearObjectFilter() { tableSearch = ''; filterInput?.focus(); }
@@ -233,16 +233,16 @@
       if (name) void selectTable(name, 1, null, 'table');
       return;
     }
-    const object = objects.find((object) => object.type === type) ?? null;
+    const object = objects.find((object) => objectSectionType(object.type, selectedConnection?.driver) === type) ?? null;
     if (object) void selectObject(object);
     else { selectedObject = null; definitionRequestId++; definitionLoading = false; definitionError = ''; }
   }
 
   async function selectObject(object: DatabaseObject) {
     editingRow = null;
-    const changed = selectedObject?.name !== object.name || activeObjectType !== object.type;
+    const changed = selectedObject?.name !== object.name || activeObjectType !== objectSectionType(object.type, selectedConnection?.driver);
     selectedObject = object;
-    activeObjectType = object.type;
+    activeObjectType = objectSectionType(object.type, selectedConnection?.driver);
     if (isViewType(object.type)) {
       if (changed) { resetRowFilters(); orderBy = []; rowsPage = null; currentPage = 1; }
       await selectTable(object.name, 1, null, object.type);
@@ -279,6 +279,7 @@
   }
 
   function accountBadge(object: DatabaseObject) {
+    if (selectedConnection?.driver === 'postgres') return postgresAccountBadge(object);
     if (selectedConnection?.driver !== 'mysql' || (object.type !== 'user' && object.type !== 'role')) return null;
     const category = object.details?.['Account category'];
     if (category === 'internal') return { label: 'Built-in', title: 'Recognized internal MySQL account identity; this does not indicate SYSTEM_USER privileges.' };
@@ -287,7 +288,7 @@
   }
 
   function sectionCount(type: ObjectType) {
-    return type === 'table' ? tables.length : objects.filter((object) => object.type === type).length;
+    return type === 'table' ? tables.length : objects.filter((object) => objectSectionType(object.type, selectedConnection?.driver) === type).length;
   }
 
   async function disconnect() {

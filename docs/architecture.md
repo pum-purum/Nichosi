@@ -49,7 +49,10 @@ use TLS disabled and support read-only browsing; PostgreSQL ChangeSets are not y
 available. Keep this setup on a trusted local network.
 Tables and views are listed across accessible user schemas with qualified names
 such as `public.events`. Materialized views have their own category. The PostgreSQL
-object browser also lists users (LOGIN roles), roles (NOLOGIN), triggers, procedures,
+object browser also lists PostgreSQL accounts together under Users: LOGIN roles
+and NOLOGIN roles. NOLOGIN roles receive a Built-in display badge, which describes
+this grouping rather than proving server-provided origin. Account details retain
+the Login allowed attribute. The browser also lists triggers, procedures,
 functions, schemas, sequences, types, extensions and indexes. Overloaded routines
 include their identity arguments. Role metadata never includes authentication data.
 
