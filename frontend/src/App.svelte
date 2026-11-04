@@ -413,7 +413,7 @@
       <section class="database-workspace" aria-label="Database workspace">
         <nav class="app-rail" aria-label="Workspace navigation">
           {#each objectSections as section}
-            <button class:active={activeObjectType === section.type} class="rail-button category-rail-button" aria-label={section.label} aria-current={activeObjectType === section.type ? 'page' : undefined} title={section.label} onclick={() => selectSection(section.type)}>
+            <button class:active={activeObjectType === section.type} class="rail-button category-rail-button" data-object-type={section.type} aria-label={section.label} aria-current={activeObjectType === section.type ? 'page' : undefined} title={section.label} onclick={() => selectSection(section.type)}>
               <ObjectIcon type={section.type} />
               {#if sectionCount(section.type) > 0}<small>{sectionCount(section.type) > 99 ? '99+' : sectionCount(section.type)}</small>{/if}
             </button>
