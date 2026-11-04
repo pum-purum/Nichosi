@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -135,6 +136,10 @@ func SQLiteCatalog(ctx context.Context, db *sql.DB) (SQLiteCatalogResult, error)
 		result.Objects = result.Objects[:1000]
 		result.Warnings = append(result.Warnings, "Schema metadata is limited to 1000 objects.")
 	}
+	sizes, err := sqliteTableSizes(ctx, db)
+	if err != nil {
+		return result, fmt.Errorf("read SQLite table sizes: %w", err)
+	}
 	objects := []Object{}
 	for _, o := range result.Objects {
 		if o.Type != "table" {
@@ -145,11 +150,37 @@ func SQLiteCatalog(ctx context.Context, db *sql.DB) (SQLiteCatalogResult, error)
 		if err != nil {
 			return result, err
 		}
-		result.Tables = append(result.Tables, PostgresTable{Name: o.Name, Columns: cols})
+		result.Tables = append(result.Tables, PostgresTable{Name: o.Name, Columns: cols, DataBytes: sizes[o.Name].data, IndexBytes: sizes[o.Name].indexes})
 	}
 	result.Objects = objects
 	return result, nil
 }
+
+// dbstat aggregate mode reports allocated B-tree bytes, including overflow pages.
+// Join all schema indexes so UNIQUE autoindexes are attributed to their table.
+func sqliteTableSizes(ctx context.Context, db *sql.DB) (map[string]struct{ data, indexes int64 }, error) {
+	rows, err := db.QueryContext(ctx, `SELECT s.tbl_name,
+ SUM(CASE WHEN s.type='table' THEN d.pgsize ELSE 0 END),
+ SUM(CASE WHEN s.type='index' THEN d.pgsize ELSE 0 END)
+ FROM dbstat('main',1) d JOIN main.sqlite_schema s ON s.name=d.name
+ WHERE s.type IN ('table','index') AND s.tbl_name NOT GLOB 'sqlite_*'
+ GROUP BY s.tbl_name ORDER BY s.tbl_name LIMIT 1001`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	sizes := map[string]struct{ data, indexes int64 }{}
+	for rows.Next() {
+		var name string
+		var size struct{ data, indexes int64 }
+		if err := rows.Scan(&name, &size.data, &size.indexes); err != nil {
+			return nil, err
+		}
+		sizes[name] = size
+	}
+	return sizes, rows.Err()
+}
+
 func SQLiteObjectDefinition(ctx context.Context, db *sql.DB, kind, name string) (Object, error) {
 	o := Object{Name: name, Type: kind, Details: map[string]string{}}
 	if kind != "view" && kind != "trigger" && kind != "index" {

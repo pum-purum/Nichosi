@@ -136,3 +136,8 @@ as `{"type":"blob","hex":"..."}` and display as hexadecimal read-only values.
 Candidate edit keys containing runtime values other than integers or text are
 rejected. Binary key objects are also rejected during change validation, preserving
 row identity if another process changes the database between page load and Apply.
+
+SQLite table sizes come from `dbstat` in aggregate mode: table B-tree pages are
+reported as data bytes, and explicit plus automatic index pages as index bytes.
+These allocated sizes include overflow and unused space within occupied pages;
+free database pages and file-level overhead are not attributed to a table.

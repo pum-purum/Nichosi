@@ -349,13 +349,13 @@ type Schema struct {
 type TableInfo struct {
 	Columns []Column `json:"columns"`
 
-	// DataBytes Estimated table data size in bytes
+	// DataBytes Estimated table data size in bytes; SQLite reports allocated table B-tree pages from dbstat
 	DataBytes int64 `json:"dataBytes"`
 
 	// DisplayName Short display label within a schema group; retains routine identity arguments and trigger table context. The name field remains the full opaque API identifier.
 	DisplayName *string `json:"displayName,omitempty"`
 
-	// IndexBytes Estimated table index size in bytes
+	// IndexBytes Estimated table index size in bytes; SQLite includes allocated pages of explicit and automatic indexes
 	IndexBytes   int64  `json:"indexBytes"`
 	Name         string `json:"name"`
 	RowsEstimate int64  `json:"rowsEstimate"`

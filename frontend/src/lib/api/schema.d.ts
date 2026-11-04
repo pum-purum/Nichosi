@@ -349,12 +349,12 @@ export interface components {
             rowsEstimate: number;
             /**
              * Format: int64
-             * @description Estimated table data size in bytes
+             * @description Estimated table data size in bytes; SQLite reports allocated table B-tree pages from dbstat
              */
             dataBytes: number;
             /**
              * Format: int64
-             * @description Estimated table index size in bytes
+             * @description Estimated table index size in bytes; SQLite includes allocated pages of explicit and automatic indexes
              */
             indexBytes: number;
             columns: components["schemas"]["Column"][];

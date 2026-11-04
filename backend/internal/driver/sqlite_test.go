@@ -178,3 +178,51 @@ func TestSQLiteDynamicKeyTypes(t *testing.T) {
 		t.Fatalf("legal prefix rejected: %v", err)
 	}
 }
+
+func TestSQLiteTableSizes(t *testing.T) {
+	db, path := sqliteFixture(t)
+	if _, err := db.Exec(`CREATE TABLE large(id INTEGER PRIMARY KEY, content TEXT NOT NULL UNIQUE);
+ INSERT INTO large(content) VALUES(printf('%020000d',1));
+ CREATE TABLE compact(k TEXT PRIMARY KEY, value TEXT) WITHOUT ROWID;`); err != nil {
+		t.Fatal(err)
+	}
+	ro, _, err := OpenSQLite(context.Background(), path, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ro.Close()
+	var pageSize int64
+	if err := ro.QueryRow("PRAGMA page_size").Scan(&pageSize); err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := SQLiteCatalog(context.Background(), ro)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tables := map[string]PostgresTable{}
+	for _, table := range catalog.Tables {
+		tables[table.Name] = table
+	}
+	for _, tc := range []struct {
+		name    string
+		indexed bool
+	}{
+		{"audit", false}, {"entries", true}, {"parent", true}, {"large", true}, {"compact", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			table, ok := tables[tc.name]
+			if !ok || table.DataBytes < pageSize || table.DataBytes%pageSize != 0 {
+				t.Fatalf("invalid data size: %+v", table)
+			}
+			if (table.IndexBytes > 0) != tc.indexed || table.IndexBytes%pageSize != 0 {
+				t.Fatalf("invalid index size: %+v", table)
+			}
+		})
+	}
+	if tables["large"].DataBytes <= pageSize || tables["large"].IndexBytes <= pageSize {
+		t.Fatal("overflow pages omitted")
+	}
+	if _, ok := tables["entry_names"]; ok {
+		t.Fatal("view attributed table storage")
+	}
+}

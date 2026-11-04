@@ -370,8 +370,8 @@ components:
           description: Short display label within a schema group; retains routine identity arguments and trigger table context. The name field remains the full opaque API identifier.
         name: { type: string }
         rowsEstimate: { type: integer, format: int64 }
-        dataBytes: { type: integer, format: int64, description: "Estimated table data size in bytes" }
-        indexBytes: { type: integer, format: int64, description: "Estimated table index size in bytes" }
+        dataBytes: { type: integer, format: int64, description: "Estimated table data size in bytes; SQLite reports allocated table B-tree pages from dbstat" }
+        indexBytes: { type: integer, format: int64, description: "Estimated table index size in bytes; SQLite includes allocated pages of explicit and automatic indexes" }
         columns:
           type: array
           items: { $ref: "#/components/schemas/Column" }
