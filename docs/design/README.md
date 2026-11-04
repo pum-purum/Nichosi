@@ -6,6 +6,8 @@ Nichosi is a quiet, local-first database workspace with an original visual ident
 
 Connection cards share column widths across the list so metadata icons and status badges align vertically. Keep the driver icon column compact and size the last-connection column to its contents. Reserve the read-only column even when a connection has no read-only marker. Use short Online / Offline status labels, with the full connection state in the tooltip.
 
+Connection cards use locally bundled Simple Icons database logos: the MySQL dolphin, MariaDB seal, PostgreSQL elephant, and SQLite feather. Display them at 26px with light tints for contrast on the dark background. Each logo has a database-type tooltip and accessible label. Use the connection engine when available, falling back to its driver.
+
 - Use a compact top bar for row search, database and schema breadcrumbs, and a small set of contextual actions.
 - Keep a narrow app navigation rail beside a database-object tree. The object tree shows the active connection, database, schema, and tables.
 - Give each object category a distinct icon color when active in the navigation rail. Keep the active background, left indicator, and count badge green; inactive icons stay neutral.

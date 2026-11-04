@@ -25,11 +25,19 @@ const (
 	ConnectionDriverSqlite   ConnectionDriver = "sqlite"
 )
 
+// Defines values for ConnectionEngine.
+const (
+	ConnectionEngineMariadb  ConnectionEngine = "mariadb"
+	ConnectionEngineMysql    ConnectionEngine = "mysql"
+	ConnectionEnginePostgres ConnectionEngine = "postgres"
+	ConnectionEngineSqlite   ConnectionEngine = "sqlite"
+)
+
 // Defines values for ConnectionInputDriver.
 const (
-	ConnectionInputDriverMysql    ConnectionInputDriver = "mysql"
-	ConnectionInputDriverPostgres ConnectionInputDriver = "postgres"
-	ConnectionInputDriverSqlite   ConnectionInputDriver = "sqlite"
+	Mysql    ConnectionInputDriver = "mysql"
+	Postgres ConnectionInputDriver = "postgres"
+	Sqlite   ConnectionInputDriver = "sqlite"
 )
 
 // Defines values for FilterConnector.
@@ -170,11 +178,14 @@ type Connection struct {
 	// DatabaseSizeBytes Database size in bytes; null when unavailable
 	DatabaseSizeBytes *int64           `json:"databaseSizeBytes"`
 	Driver            ConnectionDriver `json:"driver"`
-	Host              string           `json:"host"`
-	Id                string           `json:"id"`
-	LastConnectedAt   *time.Time       `json:"lastConnectedAt"`
-	Name              string           `json:"name"`
-	Port              int              `json:"port"`
+
+	// Engine Database product for display; defaults to driver until identified. MySQL-compatible servers are identified after connecting; configured profiles may specify engine for offline display.
+	Engine          *ConnectionEngine `json:"engine,omitempty"`
+	Host            string            `json:"host"`
+	Id              string            `json:"id"`
+	LastConnectedAt *time.Time        `json:"lastConnectedAt"`
+	Name            string            `json:"name"`
+	Port            int               `json:"port"`
 
 	// Readonly Whether this connection is restricted to read-only operations
 	Readonly bool   `json:"readonly"`
@@ -183,6 +194,9 @@ type Connection struct {
 
 // ConnectionDriver defines model for Connection.Driver.
 type ConnectionDriver string
+
+// ConnectionEngine Database product for display; defaults to driver until identified. MySQL-compatible servers are identified after connecting; configured profiles may specify engine for offline display.
+type ConnectionEngine string
 
 // ConnectionInput defines model for ConnectionInput.
 type ConnectionInput struct {

@@ -141,3 +141,54 @@ func TestPostgresConfiguredPasswordEnv(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadConfiguredConnectionEngine(t *testing.T) {
+	for _, tc := range []struct {
+		name, driver, engine, want string
+	}{
+		{"default MySQL", "mysql", "", "mysql"},
+		{"explicit MySQL", "mysql", "mysql", "mysql"},
+		{"MariaDB", "mysql", "mariadb", "mariadb"},
+		{"default PostgreSQL", "postgres", "", "postgres"},
+		{"explicit PostgreSQL", "postgres", "postgres", "postgres"},
+		{"incompatible MariaDB", "postgres", "mariadb", ""},
+		{"incompatible PostgreSQL", "mysql", "postgres", ""},
+		{"unknown engine", "mysql", "other", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			file := filepath.Join(t.TempDir(), "connections.json")
+			config := connectionsConfig{Connections: []connectionConfig{{
+				Name: "Local", Driver: tc.driver, Engine: tc.engine, Host: "localhost", Port: 3306,
+				User: "tester", Database: "lab", Password: "test-password",
+			}}}
+			data, err := json.Marshal(config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(file, data, 0600); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("NICHOSI_CONNECTIONS_FILE", file)
+			application := &app{}
+			application.loadConfiguredConnections()
+			if tc.want == "" {
+				if len(application.connections) != 0 {
+					t.Fatal("incompatible engine must not load")
+				}
+				return
+			}
+			response := httptest.NewRecorder()
+			application.listConnections(response, httptest.NewRequest("GET", "/api/connections", nil))
+			var returned []Connection
+			if err := json.Unmarshal(response.Body.Bytes(), &returned); err != nil {
+				t.Fatal(err)
+			}
+			if len(returned) != 1 || returned[0].Engine == nil || string(*returned[0].Engine) != tc.want {
+				t.Fatalf("unexpected engine response: %s", response.Body.String())
+			}
+			if returned[0].Connected {
+				t.Fatal("engine display must not require opening a connection")
+			}
+		})
+	}
+}

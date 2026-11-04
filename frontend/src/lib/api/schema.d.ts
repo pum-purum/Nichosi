@@ -268,6 +268,11 @@ export interface components {
             name: string;
             /** @enum {string} */
             driver: "mysql" | "postgres" | "sqlite";
+            /**
+             * @description Database product for display; defaults to driver until identified. MySQL-compatible servers are identified after connecting; configured profiles may specify engine for offline display.
+             * @enum {string}
+             */
+            engine?: "mysql" | "mariadb" | "postgres" | "sqlite";
             host: string;
             port: number;
             user: string;

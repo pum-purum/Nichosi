@@ -36,6 +36,7 @@ type connectionsConfig struct {
 type connectionConfig struct {
 	Name        string `json:"name"`
 	Driver      string `json:"driver"`
+	Engine      string `json:"engine"`
 	Host        string `json:"host"`
 	Port        int    `json:"port"`
 	User        string `json:"user"`
@@ -171,6 +172,9 @@ func (a *app) connectConnection(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		item.pool = opened.pool
+		if opened.Engine != nil {
+			item.Engine = opened.Engine
+		}
 		item.DatabaseSizeBytes = opened.DatabaseSizeBytes
 		item.LastConnectedAt = opened.LastConnectedAt
 		item.Readonly = opened.Readonly
@@ -502,6 +506,11 @@ func (a *app) loadConfiguredConnections() {
 			slog.Warn("skipping invalid connection profile", "name", saved.Name)
 			continue
 		}
+		engine, valid := configuredEngine(saved.Driver, saved.Engine)
+		if !valid {
+			slog.Warn("skipping incompatible database engine", "name", saved.Name)
+			continue
+		}
 		readonly := saved.Driver == "postgres" || connectionReadonly(saved.Readonly)
 		input := ConnectionInput{
 			Name: saved.Name, Driver: ConnectionInputDriver(saved.Driver), Host: saved.Host,
@@ -517,6 +526,7 @@ func (a *app) loadConfiguredConnections() {
 				Id:        fmt.Sprintf("conn-%d", time.Now().UTC().UnixNano()),
 				Name:      name,
 				Driver:    ConnectionDriver(saved.Driver),
+				Engine:    &engine,
 				Host:      saved.Host,
 				Port:      saved.Port,
 				User:      saved.User,
@@ -531,6 +541,15 @@ func (a *app) loadConfiguredConnections() {
 
 // connectionReadonly defaults both omitted and null settings to read-only.
 func connectionReadonly(value *bool) bool { return value == nil || *value }
+
+func configuredEngine(driver, engine string) (ConnectionEngine, bool) {
+	if engine == "" {
+		engine = driver
+	}
+	valid := (driver == "mysql" && (engine == "mysql" || engine == "mariadb")) ||
+		(driver == "postgres" && engine == "postgres") || (driver == "sqlite" && engine == "sqlite")
+	return ConnectionEngine(engine), valid
+}
 
 func (a *app) openMySQLConnection(ctx context.Context, input ConnectionInput) (*profile, error) {
 	cfg := mysql.NewConfig()
@@ -560,7 +579,12 @@ func (a *app) openMySQLConnection(ctx context.Context, input ConnectionInput) (*
 	}
 	readonly := connectionReadonly(input.Readonly)
 	input.Readonly = &readonly
-	return &profile{Connection: Connection{Id: fmt.Sprintf("conn-%d", now.UnixNano()), Name: name, Driver: ConnectionDriver("mysql"), Host: input.Host, Port: input.Port, User: input.User, Database: input.Database, Readonly: readonly, Connected: true, DatabaseSizeBytes: &size, LastConnectedAt: &now}, pool: pool, input: input}, nil
+	var engine *ConnectionEngine
+	if product, err := driver.MySQLEngine(ctx, pool); err == nil {
+		value := ConnectionEngine(product)
+		engine = &value
+	}
+	return &profile{Connection: Connection{Id: fmt.Sprintf("conn-%d", now.UnixNano()), Name: name, Driver: ConnectionDriver("mysql"), Engine: engine, Host: input.Host, Port: input.Port, User: input.User, Database: input.Database, Readonly: readonly, Connected: true, DatabaseSizeBytes: &size, LastConnectedAt: &now}, pool: pool, input: input}, nil
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
@@ -583,7 +607,7 @@ func isLoopback(addr string) bool {
 }
 
 func (a *app) openConnection(ctx context.Context, input ConnectionInput) (*profile, error) {
-	if input.Driver != ConnectionInputDriverPostgres {
+	if input.Driver != ConnectionInputDriver("postgres") {
 		return a.openMySQLConnection(ctx, input)
 	}
 	pool, size, err := driver.OpenPostgres(ctx, input.Host, input.Port, input.User, *input.Password, input.Database)
@@ -597,5 +621,6 @@ func (a *app) openConnection(ctx context.Context, input ConnectionInput) (*profi
 	if name == "" {
 		name = input.Database
 	}
-	return &profile{Connection: Connection{Id: fmt.Sprintf("conn-%d", now.UnixNano()), Name: name, Driver: ConnectionDriverPostgres, Host: input.Host, Port: input.Port, User: input.User, Database: input.Database, Readonly: true, Connected: true, DatabaseSizeBytes: &size, LastConnectedAt: &now}, pool: pool, input: input}, nil
+	engine := ConnectionEnginePostgres
+	return &profile{Connection: Connection{Id: fmt.Sprintf("conn-%d", now.UnixNano()), Name: name, Driver: ConnectionDriverPostgres, Engine: &engine, Host: input.Host, Port: input.Port, User: input.User, Database: input.Database, Readonly: true, Connected: true, DatabaseSizeBytes: &size, LastConnectedAt: &now}, pool: pool, input: input}, nil
 }

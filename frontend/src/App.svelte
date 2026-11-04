@@ -10,6 +10,7 @@
   import DataError from './lib/DataError.svelte';
   import RowFilter from './lib/RowFilter.svelte';
   import ObjectIcon from './lib/ObjectIcon.svelte';
+  import ConnectionIcon from './lib/ConnectionIcon.svelte';
   import { isViewType, objectSectionsFor, objectSectionType, postgresAccountBadge, type ObjectType } from './lib/object-sections';
   import { groupSchemaEntries, matchesSchemaEntry, schemaGroupedTypes, schemaGroupKey, schemaGroupOpen } from './lib/schema-groups';
   import { matchesObjectFilter } from './lib/object-filter';
@@ -560,7 +561,7 @@
           {#each connections as connection (connection.id)}
             <button class="connection-card" onclick={() => void openDatabase(connection)} aria-label={`Open ${connection.name}`}>
               <div class="connection-row">
-                <span class="connection-type" role="img" aria-label={connection.driver.toUpperCase()} title={connection.driver.toUpperCase()}><Database size={17} strokeWidth={1.8} /></span>
+                <span class="connection-type"><ConnectionIcon driver={connection.driver} engine={connection.engine} /></span>
                 <span class="connection-name" title={connection.name}>{connection.name}</span>
                 <span class="connection-meta" title="Host and port"><Server size={14} /><span>{connection.host}:{connection.port}</span></span>
                 <span class="connection-meta" title="Database user"><UserRound size={14} /><span>{connection.user}</span></span>

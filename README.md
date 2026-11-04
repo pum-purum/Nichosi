@@ -27,6 +27,8 @@ Run the following commands from the `Nichosi` folder.
 
 2. Open `connections.json` and replace the example values with your database details. The file contains your password, so keep it private. It is ignored by Git and is not copied into the Docker image.
 
+   MariaDB uses `"driver": "mysql"`. Add `"engine": "mariadb"` to its profile to show the MariaDB logo before connecting. The optional `engine` defaults to the driver; MySQL-compatible servers are identified after connecting. The engine changes only the displayed database product, not the connection protocol.
+
    ```json
    {
      "connections": [

@@ -294,6 +294,7 @@ components:
         id: { type: string }
         name: { type: string }
         driver: { type: string, enum: [mysql, postgres, sqlite] }
+        engine: { type: string, enum: [mysql, mariadb, postgres, sqlite], description: "Database product for display; defaults to driver until identified. MySQL-compatible servers are identified after connecting; configured profiles may specify engine for offline display." }
         host: { type: string }
         port: { type: integer }
         user: { type: string }
