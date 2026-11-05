@@ -25,6 +25,24 @@ Connection cards use locally bundled Simple Icons database logos: the MySQL dolp
 - Use readable system typography. Table content should remain compact enough for scanning while labels and controls stay comfortably legible; avoid tiny metadata text.
 - Preserve visible keyboard focus, sufficient contrast, and clear disabled states. Do not communicate state by color alone.
 
+## Buttons and controls
+
+Use one shared style for actions with the same role across all workspaces. The
+row-filter toolbar is the baseline for compact actions, including SQL Preview
+and Execute. Use the shared `.toolbar-button` class and control tokens in
+`frontend/src/app.css`: 30px minimum height, 12px text with 16px line height,
+6px vertical / 9px horizontal padding, 5px corners and icon gaps, and 14–15px
+icons. Use neutral raised surfaces, a subtle border, an accent hover border and
+visible keyboard focus. Disabled actions use reduced opacity without shifting
+layout. Keep labels on one line; allow the toolbar to wrap on narrow screens.
+
+Emphasize a primary action with `.toolbar-button-primary` (accent text), keeping
+the same size, spacing and shape as secondary actions. Do not enlarge Preview,
+Execute, Apply or Refresh or invent screen-specific button styling. New toolbar
+actions must reuse these classes instead of duplicating CSS. Navigation rail
+items, tabs, connection cards and icon-only row actions retain their existing
+purpose-specific layouts; they are not toolbar action buttons.
+
 ## Product behavior
 
 - Keep the connections screen focused on saved connections. When none exist, show the first-connection guidance; when connections exist, show their database type, size, last connection, and an unavailable state where metadata cannot be provided.
