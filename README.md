@@ -186,3 +186,6 @@ Select an entry to restore its source, row limit and mode, then execute it again
 explicitly. **Clear history** removes retained SQL. Neither SQL nor results are
 written to browser storage or disk. Unfinished drafts survive workspace navigation
 in memory. Generated row edits still require their ChangeSet SQL preview.
+
+The SQL console accepts one SQL statement at a time. Multiple statements show a
+warning and disable Execute; the server rejects them before executing anything.

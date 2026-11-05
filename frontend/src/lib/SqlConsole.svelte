@@ -7,6 +7,7 @@
   import { Play } from '@lucide/svelte';
   import { sqlEditorHighlighting } from './sql-editor-highlight';
   import { sqlDraft, saveSqlDraft } from './sql-drafts';
+  import { sqlStatementError } from './sql-statement';
   import { cellValue } from './cell-value';
   import type { ScriptHistory } from './script-history';
   import type { components } from './api/schema';
@@ -24,6 +25,7 @@
   let busy = $state(false);
   const lifecycle = new AbortController();
   const base = $derived(`/api/connections/${encodeURIComponent(connection.id)}/scripts`);
+  const statementError = $derived(sqlStatementError(source, connection.driver));
   let alive = true;
   $effect(() => { scriptHistory.setExecuting(busy); });
   function saveDraft() { saveSqlDraft(connection.id, source, rowLimit, atomic); }
@@ -33,7 +35,7 @@
     return response.status === 204 ? undefined as T : response.json();
   }
   async function execute() {
-    if (busy || !source.trim()) return;
+    if (busy || !source.trim() || statementError) return;
     if (!Number.isInteger(rowLimit) || rowLimit < 1 || rowLimit > 1000) { error = 'Choose a row limit between 1 and 1000.'; return; }
     busy = true; error = ''; execution = null;
     try {
@@ -65,8 +67,9 @@
 <section class="sql-console" aria-label="SQL console" aria-busy={busy}>
   <header><h1>SQL console</h1></header>
   <div class="sql-editor" bind:this={editorHost}></div>
-  <div class="script-toolbar"><label>Rows per result <input type="number" min="1" max="1000" bind:value={rowLimit} disabled={busy} oninput={saveDraft} onchange={saveDraft} /></label><select aria-label="Execution mode" title={atomic ? (connection.driver === 'mysql' ? 'Transaction mode supports read-only queries in MySQL/MariaDB.' : 'Run the script in one transaction.') : 'Run without a shared transaction. Changes may be applied partially.'} value={atomic ? 'atomic' : 'direct'} disabled={busy || connection.readonly} onchange={(event) => { atomic = event.currentTarget.value === 'atomic'; saveDraft(); }}><option value="atomic">Transaction</option><option value="direct">Direct</option></select><span>30 s timeout</span><button class="toolbar-button toolbar-button-primary" disabled={busy || !source.trim() || !Number.isInteger(rowLimit) || rowLimit < 1 || rowLimit > 1000} onclick={execute} title="Execute (Ctrl/⌘+Enter)" aria-keyshortcuts="Control+Enter Meta+Enter"><Play size={15} />{busy ? 'Running…' : 'Execute'}</button></div>
+  <div class="script-toolbar"><label>Rows per result <input type="number" min="1" max="1000" bind:value={rowLimit} disabled={busy} oninput={saveDraft} onchange={saveDraft} /></label><select aria-label="Execution mode" title={atomic ? (connection.driver === 'mysql' ? 'Transaction mode supports read-only queries in MySQL/MariaDB.' : 'Run the script in one transaction.') : 'Run without a shared transaction. Changes may be applied partially.'} value={atomic ? 'atomic' : 'direct'} disabled={busy || connection.readonly} onchange={(event) => { atomic = event.currentTarget.value === 'atomic'; saveDraft(); }}><option value="atomic">Transaction</option><option value="direct">Direct</option></select><span>30 s timeout</span><button class="toolbar-button toolbar-button-primary" disabled={busy || !!statementError || !source.trim() || !Number.isInteger(rowLimit) || rowLimit < 1 || rowLimit > 1000} onclick={execute} title="Execute (Ctrl/⌘+Enter)" aria-keyshortcuts="Control+Enter Meta+Enter"><Play size={15} />{busy ? 'Running…' : 'Execute'}</button></div>
   {#if !atomic}<p class="mode-warning" role="status">Changes may be applied partially.</p>{/if}
+  {#if source.trim() && statementError}<p class="mode-warning" role="status">{statementError}</p>{/if}
   {#if error}<p class="script-error" role="alert">{error}</p>{/if}
   {#if execution}<section class="script-results" aria-label="Script results"><span class="sr-only" role="status">{execution.entry.success ? 'Executed successfully' : 'Execution failed'}</span>{#if source !== execution.entry.sql}<p>These results belong to the previously executed script.</p>{/if}{#if execution.entry.error}<p class="script-error" role="alert">{execution.entry.error}</p>{/if}
     {#each execution.results as result}<article><h3>Statement {result.statement}</h3>{#if result.columns.length}<div class="script-grid"><table><thead><tr>{#each result.columns as column}<th>{column}</th>{/each}</tr></thead><tbody>{#each result.rows as row}<tr>{#each row as value}<td class:null-value={value === null} title={cell(value)}>{cell(value)}</td>{/each}</tr>{/each}</tbody></table></div><p>{result.rows.length} row(s){result.truncated ? ' · Result truncated; narrow the query or increase the row limit.' : ''}</p>{:else}<p>{result.rowsAffected} row(s) affected</p>{/if}</article>{/each}

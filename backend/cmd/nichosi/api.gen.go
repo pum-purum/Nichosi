@@ -348,9 +348,11 @@ type Schema struct {
 // ScriptExecuteInput defines model for ScriptExecuteInput.
 type ScriptExecuteInput struct {
 	// Atomic Use one transaction. Disable only to explicitly permit partial application on writable profiles.
-	Atomic   *bool  `json:"atomic,omitempty"`
-	RowLimit *int   `json:"rowLimit,omitempty"`
-	Sql      string `json:"sql"`
+	Atomic   *bool `json:"atomic,omitempty"`
+	RowLimit *int  `json:"rowLimit,omitempty"`
+
+	// Sql Exactly one SQL statement; multiple statements return HTTP 400. Semicolons inside quoted values, comments and supported routine bodies are not separators.
+	Sql string `json:"sql"`
 }
 
 // ScriptExecution defines model for ScriptExecution.

@@ -167,7 +167,7 @@ supported. Executable comments/optimizer hints and backslash-escaped literals in
 MySQL/PostgreSQL are rejected; use doubled quotes or dollar quoting.
 
 Results show columns, rows, affected counts and truncation. Duration appears in history. Limits are
-256 KiB of SQL, 100 statements, 30 seconds, 200 rows per result by default (maximum
+256 KiB of SQL, exactly one statement, 30 seconds, 200 rows per result by default (maximum
 1000), 1000 rows total and 4 MiB of serialized result column/row data. Large queries
 should include explicit SQL limits. Connection loss during commit is reported as
 an unknown outcome; check database state before repeating.
@@ -185,3 +185,8 @@ restart clears all history; results are not stored. SQL is neither logged nor
 persisted in browser storage or on disk. See
 [the SQL console decision](decisions/001-sql-script-console.md) for constraints and
 future encrypted persistence.
+
+The console accepts exactly one SQL statement per execution. Multiple statements
+show a warning and disable Execute (including its keyboard shortcut); the API
+also rejects them with HTTP 400 before executing anything. Quoted semicolons,
+comments and supported routine bodies do not separate statements.

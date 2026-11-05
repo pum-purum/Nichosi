@@ -96,6 +96,10 @@ func (a *app) executeScript(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	statements, err := driver.SplitScript(input.Sql, string(item.Driver))
+	if err == nil && len(statements) != 1 {
+		writeError(w, 400, "invalid_script", "Enter exactly one SQL statement.")
+		return
+	}
 	if err == nil {
 		err = driver.ValidateScriptMode(statements, string(item.Driver), readonly, atomic)
 	}

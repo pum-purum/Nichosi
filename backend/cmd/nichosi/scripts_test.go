@@ -59,7 +59,7 @@ func TestScriptHTTP(t *testing.T) {
 	if !result.Entry.Success || !result.Entry.Atomic || result.Entry.RowLimit != 1 || len(result.Results) != 1 || !result.Results[0].Truncated || len(result.Results[0].Rows) != 1 {
 		t.Fatalf("unexpected successful execution: %+v", result)
 	}
-	result = execution(map[string]any{"sql": "INSERT INTO entries VALUES(3); SELECT * FROM absent;"})
+	result = execution(map[string]any{"sql": "SELECT * FROM absent;"})
 	if result.Entry.Success || !result.RolledBack || len(result.Results) != 0 || result.Entry.RowLimit != 200 || result.Entry.Error != "SQL logic error: no such table: absent (1)" {
 		t.Fatalf("unexpected rollback: %+v", result)
 	}
@@ -94,12 +94,14 @@ func TestScriptHTTP(t *testing.T) {
 	if len(history) != 100 || history[0].Id == history[1].Id {
 		t.Fatal("history limit or execution identity broken")
 	}
-	result = execution(map[string]any{"sql": "INSERT INTO entries VALUES(99); SELECT * FROM missing_partial;", "atomic": false})
-	if result.Entry.Success || result.Entry.Atomic || result.RolledBack || len(result.Results) != 1 || result.Results[0].RowsAffected != 1 || result.Entry.Error != "SQL logic error: no such table: missing_partial (1)" {
-		t.Fatalf("unexpected partial execution: %+v", result)
+	for _, atomic := range []bool{true, false} {
+		w = call(a.executeScript, map[string]any{"sql": "INSERT INTO entries VALUES(99); SELECT 1;", "atomic": atomic})
+		if w.Code != 400 || !strings.Contains(w.Body.String(), "exactly one SQL statement") {
+			t.Fatalf("multiple statements accepted: %d %s", w.Code, w.Body.String())
+		}
 	}
-	if err := item.pool.QueryRow("SELECT count(*) FROM entries WHERE id=99").Scan(&n); err != nil || n != 1 {
-		t.Fatalf("partial changes lost: %d %v", n, err)
+	if err := item.pool.QueryRow("SELECT count(*) FROM entries WHERE id=99").Scan(&n); err != nil || n != 0 {
+		t.Fatalf("rejected script changed data: %d %v", n, err)
 	}
 	for _, contentType := range []string{"", "text/plain", "application/x-www-form-urlencoded", "application/json; broken"} {
 		t.Run("reject content type "+contentType, func(t *testing.T) {

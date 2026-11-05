@@ -45,7 +45,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Validate and execute a user-authored script directly, without a preview step or token, with a 30-second timeout and bounded results. atomic=true uses one transaction and rejects statements outside transaction guarantees. atomic=false is an explicit writable-profile-only mode for arbitrary SQL, including MySQL DDL; failures may leave earlier statements committed. Read-only profiles require atomic=true and database-level read-only enforcement. Each accepted execution is recorded in bounded server-side history; SQL source is never logged. */
+        /** @description Validate and execute exactly one user-authored SQL statement directly, without a preview step or token, with a 30-second timeout and bounded results. atomic=true uses one transaction and rejects statements outside transaction guarantees. atomic=false is an explicit writable-profile-only mode for arbitrary SQL, including MySQL DDL; failures may leave earlier statements committed. Read-only profiles require atomic=true and database-level read-only enforcement. Each accepted execution is recorded in bounded server-side history; SQL source is never logged. */
         post: operations["executeScript"];
         delete?: never;
         options?: never;
@@ -290,6 +290,7 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         ScriptExecuteInput: {
+            /** @description Exactly one SQL statement; multiple statements return HTTP 400. Semicolons inside quoted values, comments and supported routine bodies are not separators. */
             sql: string;
             /** @default 200 */
             rowLimit: number;
