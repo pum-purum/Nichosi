@@ -136,7 +136,7 @@ reverse the direction. Sorting returns to page one and persists across paginatio
 and page-size changes; selecting another table or view resets it. MySQL determines
 NULL ordering and text collation. Primary keys break ties when available.
 
-Database sizes and last successful connection times are stored in the `nichosi-data` Docker volume. They survive container recreation and `make down`; `docker compose down -v` deletes them. The metadata file contains no passwords or DSNs. Configured connections start disconnected and display their cached observations until the next successful connection. For local runs, set `NICHOSI_METADATA_FILE` to a writable file path to enable persistence.
+Database sizes and last successful connection times are stored in the host `data/` directory mounted at `/data`. They survive container recreation, `make down`, and `docker compose down -v`. The metadata file contains no passwords or DSNs. Configured connections start disconnected and display their cached observations until the next successful connection. For local runs, set `NICHOSI_METADATA_FILE` to a writable file path and `NICHOSI_HISTORY_DIR` to a writable directory to enable persistence.
 
 ## SQLite demo
 
@@ -177,11 +177,12 @@ SQLite and PostgreSQL support transactional queries and changes. MySQL/MariaDB
 currently support read queries only in this mode. Database DDL may have implicit
 commit semantics; a single statement does not guarantee rollback support.
 
-History retains the latest 100 executions per connection until the server
-restarts. History appears in the left sidebar while the SQL console is open.
+History retains the latest 100 executions per connection in `/data/script-history`
+and survives container restarts and recreation. History appears in the left sidebar while the SQL console is open.
 Select an entry to restore its source, then execute it again
-explicitly. **Clear history** removes retained SQL. Neither SQL nor results are
-written to browser storage or disk. Unfinished drafts survive workspace navigation
+explicitly. **Clear history** removes retained SQL from memory and disk. SQL source and execution
+metadata are stored on disk; query results are not retained. Treat the data directory
+as sensitive because SQL source may contain confidential values. Unfinished drafts survive workspace navigation
 in memory. Generated row edits still require their ChangeSet SQL preview.
 
 The SQL console accepts one SQL statement at a time. Multiple statements show a
@@ -190,3 +191,55 @@ warning and disable Execute; the server rejects them before executing anything.
 SQL results default to at most 200 rows when the outer query has no LIMIT.
 Specify LIMIT in SQL to choose a different count, subject to the safety cap of
 1000 rows and 4 MiB per execution. The console has no row-limit control.
+
+
+## Store container data on the host
+
+The image declares `/data` as a Docker volume. The bundled Compose file binds the host `data/` directory for connection
+observations and SQL history, and uses the named `sqlite-demo` volume for SQLite
+databases. To let Docker manage application data instead, replace `../data:/data`
+with `nichosi-data:/data` and declare `nichosi-data` under top-level `volumes`. Connection profiles come from the read-only `connections.json`
+bind mount. Unexecuted editor drafts remain in browser memory.
+
+For host storage, save this example as `compose.yaml` in the repository root:
+
+```yaml
+name: nichosi
+services:
+  nichosi:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    environment:
+      NICHOSI_ADDR: 0.0.0.0:8080
+      NICHOSI_LOCAL_PREVIEW: "true"
+      NICHOSI_CONNECTIONS_FILE: /config/connections.json
+      NICHOSI_METADATA_FILE: /data/connection-metadata.json
+      NICHOSI_HISTORY_DIR: /data/script-history
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./data:/data
+      - ./sqlite:/sqlite
+      - ./connections.json:/config/connections.json:ro
+    restart: unless-stopped
+```
+
+Create the host directories before starting the non-root container:
+
+```sh
+mkdir -p data sqlite
+sudo chown -R 65532:65532 data sqlite
+sudo chmod 700 data sqlite
+test -f connections.json || cp connections.example.json connections.json
+docker compose up -d --build
+```
+
+Existing named-volume contents are not migrated automatically. Copy them into the
+host directories before switching mounts if you want to keep existing observations,
+history, or SQLite data. Place existing SQLite files in `./sqlite` and use their
+`/sqlite/...` paths in connection profiles. Back up `data`, `sqlite`, and
+`connections.json` together, along with any external environment secrets.

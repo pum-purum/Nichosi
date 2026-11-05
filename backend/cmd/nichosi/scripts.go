@@ -7,9 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"mime"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -22,6 +25,7 @@ import (
 type scriptState struct {
 	mu      sync.Mutex
 	history []ScriptHistoryEntry
+	loaded  bool
 }
 
 func scriptAtomic(v *bool) bool { return v == nil || *v }
@@ -119,10 +123,21 @@ func (a *app) executeScript(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		entry.Error = redactScriptError(driver.ScriptErrorMessage(err), item.input.Password)
 	}
+	a.historyMu.Lock()
+	defer a.historyMu.Unlock()
 	state.mu.Lock()
+	loadErr := a.loadScriptHistory(item)
+	if loadErr != nil {
+		slog.Error("could not load script history")
+	}
 	state.history = append([]ScriptHistoryEntry{entry}, state.history...)
 	if len(state.history) > 100 {
 		state.history = state.history[:100]
+	}
+	if loadErr == nil {
+		if err := a.saveScriptHistory(item); err != nil {
+			slog.Error("could not save script history")
+		}
 	}
 	state.mu.Unlock()
 	result := ScriptExecution{Entry: entry, Results: []ScriptResult{}, RolledBack: atomic && err != nil && !errors.Is(err, driver.ErrScriptOutcomeUnknown)}
@@ -138,8 +153,14 @@ func (a *app) listScriptHistory(w http.ResponseWriter, r *http.Request) {
 	if item == nil {
 		return
 	}
+	a.historyMu.Lock()
+	defer a.historyMu.Unlock()
 	item.scripts.mu.Lock()
 	defer item.scripts.mu.Unlock()
+	if err := a.loadScriptHistory(item); err != nil {
+		writeError(w, 500, "history_unavailable", "Could not load script history")
+		return
+	}
 	entries := append([]ScriptHistoryEntry{}, item.scripts.history...)
 	writeJSON(w, 200, entries)
 }
@@ -148,9 +169,21 @@ func (a *app) clearScriptHistory(w http.ResponseWriter, r *http.Request) {
 	if item == nil {
 		return
 	}
+	a.historyMu.Lock()
+	defer a.historyMu.Unlock()
 	item.scripts.mu.Lock()
+	defer item.scripts.mu.Unlock()
+	if err := a.loadScriptHistory(item); err != nil {
+		writeError(w, 500, "history_unavailable", "Could not load script history")
+		return
+	}
+	previous := item.scripts.history
 	item.scripts.history = nil
-	item.scripts.mu.Unlock()
+	if err := a.saveScriptHistory(item); err != nil {
+		item.scripts.history = previous
+		writeError(w, 500, "history_unavailable", "Could not clear script history")
+		return
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -207,4 +240,63 @@ func redactScriptError(message string, password *string) string {
 		message = scriptPasswordField.ReplaceAllString(message, "password=[redacted]")
 	}
 	return message
+}
+
+// Call with the profile's script mutex held. Connection identity survives regenerated IDs.
+func (a *app) loadScriptHistory(item *profile) error {
+	if item.scripts.loaded && a.historyDir == "" {
+		return nil
+	}
+	if a.historyDir == "" {
+		item.scripts.loaded = true
+		return nil
+	}
+	data, err := os.ReadFile(filepath.Join(a.historyDir, metadataKey(item.Connection)+".json"))
+	if errors.Is(err, os.ErrNotExist) {
+		item.scripts.loaded = true
+		item.scripts.history = nil
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var entries []ScriptHistoryEntry
+	if err := json.Unmarshal(data, &entries); err != nil {
+		return err
+	}
+	if len(entries) > 100 {
+		entries = entries[:100]
+	}
+	item.scripts.history = entries
+	item.scripts.loaded = true
+	return nil
+}
+
+func (a *app) saveScriptHistory(item *profile) error {
+	if a.historyDir == "" {
+		return nil
+	}
+	if err := os.MkdirAll(a.historyDir, 0700); err != nil {
+		return err
+	}
+	data, err := json.Marshal(item.scripts.history)
+	if err != nil {
+		return err
+	}
+	file, err := os.CreateTemp(a.historyDir, ".history-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(file.Name())
+	defer file.Close()
+	if _, err := file.Write(data); err != nil {
+		return err
+	}
+	if err := file.Sync(); err != nil {
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+	return os.Rename(file.Name(), filepath.Join(a.historyDir, metadataKey(item.Connection)+".json"))
 }

@@ -18,8 +18,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pum-purum/nichosi/internal/driver"
 	"github.com/go-sql-driver/mysql"
+	"github.com/pum-purum/nichosi/internal/driver"
 )
 
 type profile struct {
@@ -51,6 +51,8 @@ type app struct {
 	mu          sync.RWMutex
 	connections []*profile
 	metadata    connectionMetadataStore
+	historyDir  string
+	historyMu   sync.Mutex
 	token       string
 	static      http.Handler
 }
@@ -73,6 +75,7 @@ func main() {
 	if err := application.metadata.load(os.Getenv("NICHOSI_METADATA_FILE")); err != nil {
 		slog.Warn("could not load connection metadata; starting with empty metadata", "error", err)
 	}
+	application.historyDir = os.Getenv("NICHOSI_HISTORY_DIR")
 	application.loadConfiguredConnections()
 	for _, item := range application.connections {
 		application.metadata.restore(&item.Connection)

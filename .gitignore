@@ -9,3 +9,5 @@ connections.json
 .DS_Store
 
 .pnpm-store/
+
+data/
