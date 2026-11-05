@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Pum-purum/nichosi/internal/driver"
+	"github.com/pum-purum/nichosi/internal/driver"
 )
 
 func (a *app) getTableMetadata(w http.ResponseWriter, r *http.Request) {

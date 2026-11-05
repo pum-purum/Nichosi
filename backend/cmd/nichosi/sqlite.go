@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/Pum-purum/nichosi/internal/driver"
+	"github.com/pum-purum/nichosi/internal/driver"
 	"path/filepath"
 	"strings"
 	"time"

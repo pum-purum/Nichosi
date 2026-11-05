@@ -13,7 +13,7 @@ Nichosi is a web app for browsing database tables. It connects to MySQL, MariaDB
 Open a terminal and download the project:
 
 ```sh
-git clone https://github.com/Pum-purum/Nichosi.git
+git clone https://github.com/pum-purum/Nichosi.git
 cd Nichosi
 ```
 

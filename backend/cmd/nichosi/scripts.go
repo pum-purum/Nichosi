@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Pum-purum/nichosi/internal/driver"
+	"github.com/pum-purum/nichosi/internal/driver"
 )
 
 type scriptState struct {

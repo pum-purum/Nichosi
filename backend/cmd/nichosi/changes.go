@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Pum-purum/nichosi/internal/driver"
+	"github.com/pum-purum/nichosi/internal/driver"
 )
 
 func (a *app) previewChanges(w http.ResponseWriter, r *http.Request) { a.changeRows(w, r, false) }

@@ -1,4 +1,4 @@
-module github.com/Pum-purum/nichosi
+module github.com/pum-purum/nichosi
 
 go 1.22.2
 
