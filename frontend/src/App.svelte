@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Terminal, ChevronDown, ChevronRight, FolderTree, Settings2, ArrowLeft, Clock, ShieldCheck, UserRound, Database, HardDrive, KeyRound, Pencil, Search, Server, TableProperties, Trash2, Unplug, X } from '@lucide/svelte';
   import { onMount } from 'svelte';
+  import { browserTimeZoneLabel, formatDateTime } from './lib/date-time';
   import ScriptHistorySidebar from './lib/ScriptHistorySidebar.svelte';
   import { createScriptHistory } from './lib/script-history';
   import DeleteRecordDialog from './lib/DeleteRecordDialog.svelte';
@@ -372,9 +373,7 @@
     while (size >= 1024 && unit < units.length - 1) { size /= 1024; unit += 1; }
     return `${size.toFixed(1)} ${units[unit]}`;
   }
-  function formatDate(value: string | null) {
-    return value ? new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value)) : 'Unavailable';
-  }
+
 
 </script>
 
@@ -591,7 +590,7 @@
                 {/if}
                 <span class="connection-meta" title={connection.driver === 'sqlite' ? 'Database file' : 'Database'}><Database size={14} /><span>{connection.database}</span></span>
                 <span class="connection-meta connection-size" title="Database size"><HardDrive size={14} /><span>{formatBytes(connection.databaseSizeBytes)}</span></span>
-                <span class="connection-meta connection-time" title="Last connection"><Clock size={14} /><span>{formatDate(connection.lastConnectedAt)}</span></span>
+                <span class="connection-meta connection-time" title={`Last connection · ${browserTimeZoneLabel(connection.lastConnectedAt)}`}><Clock size={14} /><span>{formatDateTime(connection.lastConnectedAt)} <span class="timezone-badge">{browserTimeZoneLabel(connection.lastConnectedAt)}</span></span></span>
                 {#if connection.readonly}<span class="connection-readonly" title="Read-only connection"><ShieldCheck size={14} /> Read only</span>{/if}
                 <span class:connected={connection.connected} class="preview-badge" title={connection.connected ? 'Connected' : 'Disconnected'}><span></span>{connection.connected ? 'Online' : 'Offline'}</span>
               </div>

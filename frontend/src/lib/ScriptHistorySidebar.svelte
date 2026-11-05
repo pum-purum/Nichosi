@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { browserTimeZoneLabel, formatDateTime } from './date-time';
   import { RefreshCw, Trash2 } from '@lucide/svelte';
   import type { ScriptHistory } from './script-history';
   import type { components } from './api/schema';
@@ -16,7 +17,7 @@
     {#each $history.entries as entry (entry.id)}
       <button class:active={$history.selectedId === entry.id} class:succeeded={entry.success} class:failed={!entry.success} disabled={!ready || $history.executing} aria-current={$history.selectedId === entry.id ? 'true' : undefined} aria-label={`${entry.success ? 'Succeeded' : 'Failed'}. Load script to repeat: ${entry.sql.trim().replace(/\s+/g, ' ').slice(0, 160)}`} title={`${entry.success ? 'Succeeded' : 'Failed'}\n${entry.sql}\n${entry.error || (entry.atomic ? 'Atomic execution' : 'Partial execution allowed')}`} onclick={() => { history.select(entry.id); select(entry); }}>
         <span class="history-meta"><span class="history-source">{entry.sql.trim().replace(/\s+/g, ' ')}</span><small>{entry.durationMs} ms</small></span>
-        <time datetime={entry.executedAt}>{new Date(entry.executedAt).toLocaleString()}</time>
+        <time datetime={entry.executedAt}>{formatDateTime(entry.executedAt)} <span class="timezone-badge">{browserTimeZoneLabel(entry.executedAt)}</span></time>
       </button>
     {:else}
       {#if !$history.loading && !$history.error}<p class="history-note" role="status">No scripts executed yet.</p>{/if}

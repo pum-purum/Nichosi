@@ -25,14 +25,12 @@ export function isBinaryValue(value: unknown): value is { type: 'blob'; hex: str
 
 export function cellValue(value: unknown, sqlType: string) {
   const kind = value === null ? 'null' : isBinaryValue(value) ? 'binary' : columnKind(sqlType);
-  // Keep strings and decimal encodings intact; never parse values through Number or Date.
+  // Preserve source strings, including datetime precision and timezone.
   const text = value === null ? 'NULL'
     : isBinaryValue(value) ? `0x${value.hex}`
     : typeof value === 'string' ? value
     : typeof value === 'object' ? JSON.stringify(value)
     : String(value);
-  const localTime = (kind === 'date' || kind === 'time' || kind === 'datetime') && typeof value === 'string'
-    ? new Date(value).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short' }) : null;
-  const label = localTime ? `${sqlType}: ${localTime} (browser timezone)` : kind === 'null' ? 'SQL NULL' : `${sqlType || 'Unknown type'}: ${text}`;
+  const label = kind === 'null' ? 'SQL NULL' : `${sqlType || 'Unknown type'}: ${text}`;
   return { kind, text, label, numeric: kind === 'integer' || kind === 'decimal' };
 }

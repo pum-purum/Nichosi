@@ -59,7 +59,7 @@ Table pagination immediately shows a spinner inside the clicked page or arrow bu
 
 ## Table value types
 
-Cells derive their appearance from the column SQL type, never from the column position or text content. Keep the grid quiet: integers use blue, decimals green, strings white, JSON lilac, dates bright cyan, `ENUM` yellow, `SET` lilac, and boolean values purple. Unknown types use the normal text color. Numbers retain their original precision; dates retain the server representation and timezone, with a browser-local value in the tooltip. MySQL `tinyint(1)` is treated as boolean.
+Cells derive their appearance from the column SQL type, never from the column position or text content. Keep the grid quiet: integers use blue, decimals green, strings white, JSON lilac, dates bright cyan, `ENUM` yellow, `SET` lilac, and boolean values purple. Unknown types use the normal text color. Numbers retain their original precision; database date, time and datetime values retain exactly the representation returned by the database in cells, tooltips and record editing, including fractional seconds and timezone offsets. Connection timestamps and script history display as `04 Nov 2026, 16:25:34` in the browser timezone and show its UTC offset in a compact badge (for example, `UTC+4` or `UTC+5:30`), calculated at the event date to account for daylight saving time. MySQL `tinyint(1)` is treated as boolean.
 
 SQL NULL is displayed as `NULL`. Text remains unquoted. `ENUM` values use one badge, while each selected `SET` value gets its own badge. Tooltips and accessible labels describe the SQL type and value.
 

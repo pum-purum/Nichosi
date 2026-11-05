@@ -30,7 +30,16 @@ describe('SQL value presentation', () => {
     expect(cellValue('2026-10-25', 'text').kind).toBe('text');
   });
 
-  it('preserves the original ISO datetime representation', () => {
-    expect(cellValue('2026-10-25T12:00:00Z', 'datetime').text).toBe('2026-10-25T12:00:00Z');
+  it.each([
+    ['2026-10-25T12:00:00Z', 'datetime'],
+    ['2026-10-25 12:00:00.123456', 'timestamp without time zone'],
+    ['2026-10-25T12:00:00.123456+04:00', 'timestamptz'],
+    ['2026-10-25', 'date'],
+    ['12:00:00.123456', 'time(6)'],
+    ['0000-00-00 00:00:00', 'datetime'],
+  ])('preserves the database value %s in the cell and tooltip', (value, type) => {
+    const cell = cellValue(value, type);
+    expect(cell.text).toBe(value);
+    expect(cell.label).toBe(`${type}: ${value}`);
   });
 });

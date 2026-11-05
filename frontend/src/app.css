@@ -449,3 +449,5 @@ kbd { flex: 0 0 auto; padding: 2px 4px; border: 1px solid #303930; border-radius
 :is(.language-sql, .cm-content) .hljs-comment { color: var(--sql-comment); font-style: italic; }
 :is(.language-sql, .cm-content) .hljs-type, :is(.language-sql, .cm-content) .hljs-built_in { color: var(--sql-builtin); }
 :is(.language-sql, .cm-content) .hljs-variable, :is(.language-sql, .cm-content) .hljs-symbol { color: var(--sql-variable); }
+
+.timezone-badge { display: inline-block; padding: 1px 5px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); font-size: 10px; line-height: 1.4; white-space: nowrap; vertical-align: middle; }
