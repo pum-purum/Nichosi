@@ -345,6 +345,58 @@ type Schema struct {
 	Warnings *[]string `json:"warnings,omitempty"`
 }
 
+// ScriptExecuteInput defines model for ScriptExecuteInput.
+type ScriptExecuteInput struct {
+	// Atomic Use one transaction. Disable only to explicitly permit partial application on writable profiles.
+	Atomic       *bool  `json:"atomic,omitempty"`
+	PreviewToken string `json:"previewToken"`
+	RowLimit     *int   `json:"rowLimit,omitempty"`
+	Sql          string `json:"sql"`
+}
+
+// ScriptExecution defines model for ScriptExecution.
+type ScriptExecution struct {
+	Entry      ScriptHistoryEntry `json:"entry"`
+	Results    []ScriptResult     `json:"results"`
+	RolledBack bool               `json:"rolledBack"`
+}
+
+// ScriptHistoryEntry defines model for ScriptHistoryEntry.
+type ScriptHistoryEntry struct {
+	Atomic     bool      `json:"atomic"`
+	DurationMs int64     `json:"durationMs"`
+	Error      string    `json:"error"`
+	ExecutedAt time.Time `json:"executedAt"`
+	Id         string    `json:"id"`
+	RowLimit   int       `json:"rowLimit"`
+	Sql        string    `json:"sql"`
+	Success    bool      `json:"success"`
+}
+
+// ScriptInput defines model for ScriptInput.
+type ScriptInput struct {
+	// Atomic Use one transaction. Disable only to explicitly permit partial application on writable profiles.
+	Atomic   *bool  `json:"atomic,omitempty"`
+	RowLimit *int   `json:"rowLimit,omitempty"`
+	Sql      string `json:"sql"`
+}
+
+// ScriptPreview defines model for ScriptPreview.
+type ScriptPreview struct {
+	PreviewToken string   `json:"previewToken"`
+	Statements   []string `json:"statements"`
+	Warnings     []string `json:"warnings"`
+}
+
+// ScriptResult defines model for ScriptResult.
+type ScriptResult struct {
+	Columns      []string        `json:"columns"`
+	Rows         [][]interface{} `json:"rows"`
+	RowsAffected int64           `json:"rowsAffected"`
+	Statement    int             `json:"statement"`
+	Truncated    bool            `json:"truncated"`
+}
+
 // TableInfo defines model for TableInfo.
 type TableInfo struct {
 	Columns []Column `json:"columns"`
@@ -423,6 +475,12 @@ type GetColumnProfileParams struct {
 
 // CreateConnectionJSONRequestBody defines body for CreateConnection for application/json ContentType.
 type CreateConnectionJSONRequestBody = ConnectionInput
+
+// ExecuteScriptJSONRequestBody defines body for ExecuteScript for application/json ContentType.
+type ExecuteScriptJSONRequestBody = ScriptExecuteInput
+
+// PreviewScriptJSONRequestBody defines body for PreviewScript for application/json ContentType.
+type PreviewScriptJSONRequestBody = ScriptInput
 
 // ApplyChangesJSONRequestBody defines body for ApplyChanges for application/json ContentType.
 type ApplyChangesJSONRequestBody = ChangeSet

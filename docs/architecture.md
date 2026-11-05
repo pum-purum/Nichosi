@@ -45,8 +45,8 @@ parameterized SQL only; row limit and timeout on every UI query; audit log of wr
 ## PostgreSQL connections
 
 PostgreSQL profiles use `driver: "postgres"`. Local PostgreSQL connections currently
-use TLS disabled and support read-only browsing; PostgreSQL ChangeSets are not yet
-available. Keep this setup on a trusted local network.
+use TLS disabled and support schema/data browsing. PostgreSQL grid ChangeSets
+are not yet available; the SQL console supports scripts on writable profiles. Keep this setup on a trusted local network.
 Tables and views are listed across accessible user schemas with qualified names
 such as `public.events`. Materialized views have their own category. The PostgreSQL
 object browser also lists PostgreSQL accounts together under Users: LOGIN roles
@@ -141,3 +141,43 @@ SQLite table sizes come from `dbstat` in aggregate mode: table B-tree pages are
 reported as data bytes, and explicit plus automatic index pages as index bytes.
 These allocated sizes include overflow and unused space within occupied pages;
 free database pages and file-level overhead are not attributed to a table.
+
+## SQL console
+
+Open SQL console from the connected workspace navigation rail. Write a script in
+the CodeMirror editor, choose the result row limit, then select Preview SQL (or
+Ctrl/Cmd+Enter). Execute script becomes available for the exact previewed source,
+limit and execution mode. Editing any of these requires a new preview. Unfinished
+drafts remain in memory while navigating between tables and connections.
+
+The default atomic mode executes the script in one transaction. SQLite and
+PostgreSQL support transactional queries and changes. MySQL/MariaDB atomic mode
+supports read-only queries because arbitrary DDL and writes cannot guarantee
+rollback across engines and routines. Session settings, transaction commands and
+nontransactional operations are unavailable in atomic mode.
+
+On explicitly writable connections, enable Allow partial execution to execute
+arbitrary SQL without a shared transaction, including MySQL/MariaDB DML and DDL.
+This is an approved exception to the grid ChangeSet policy: the mandatory preview
+and persistent warning explain that earlier changes may remain committed after a
+failure. The script stops at the first error and shows completed results. Read-only
+profiles cannot select this mode and remain read-only at the database level.
+MySQL DELIMITER commands, SQLite trigger bodies and PostgreSQL dollar quotes are
+supported. Executable comments/optimizer hints and backslash-escaped literals in
+MySQL/PostgreSQL are rejected; use doubled quotes or dollar quoting.
+
+Results show columns, rows, affected counts, truncation and duration. Limits are
+256 KiB of SQL, 100 statements, 30 seconds, 200 rows per result by default (maximum
+1000), 1000 rows total and 4 MiB of serialized result column/row data. Large queries
+should include explicit SQL limits. Connection loss during commit is reported as
+an unknown outcome; check database state before repeating.
+
+The SQL console replaces the object tree with script history in the left sidebar.
+History lists the most recent 100 executions per connection for this server
+session. Each entry shows SQL, status, timestamp and duration; selecting it loads
+the script into the editor. Refresh and Clear history are available in the sidebar. Selecting an entry restores SQL, row limit and mode, then requires another
+preview and explicit execution. Clear history removes retained source. Server
+restart clears all history; results are not stored. SQL is neither logged nor
+persisted in browser storage or on disk. See
+[the SQL console decision](decisions/001-sql-script-console.md) for constraints and
+future encrypted persistence.

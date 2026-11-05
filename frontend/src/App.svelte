@@ -1,6 +1,8 @@
 <script lang="ts">
-  import { ChevronDown, ChevronRight, FolderTree, Settings2, ArrowLeft, Clock, ShieldCheck, UserRound, Database, HardDrive, KeyRound, Pencil, Search, Server, TableProperties, Trash2, Unplug, X } from '@lucide/svelte';
+  import { Terminal, ChevronDown, ChevronRight, FolderTree, Settings2, ArrowLeft, Clock, ShieldCheck, UserRound, Database, HardDrive, KeyRound, Pencil, Search, Server, TableProperties, Trash2, Unplug, X } from '@lucide/svelte';
   import { onMount } from 'svelte';
+  import ScriptHistorySidebar from './lib/ScriptHistorySidebar.svelte';
+  import { createScriptHistory } from './lib/script-history';
   import DeleteRecordDialog from './lib/DeleteRecordDialog.svelte';
   import RecordEditor from './lib/RecordEditor.svelte';
   import TableMetadata from './lib/TableMetadata.svelte';
@@ -21,12 +23,16 @@
   type TableInfo = components['schemas']['TableInfo'];
   type RowsPage = components['schemas']['RowsPage'];
   type DatabaseObject = components['schemas']['DatabaseObject'];
+  let sqlConsoleOpen = $state(false);
+  let sqlConsole = $state<{ repeat: (entry: components['schemas']['ScriptHistoryEntry']) => void }>();
   let supportedObjectTypes = $state<ObjectType[]>([]);
 
   let connections = $state<Connection[]>([]);
   let error = $state('');
   let loading = $state(true);
   let selectedConnection = $state<Connection | null>(null);
+  const historyConnectionId = $derived(selectedConnection?.id ?? '');
+  const scriptHistory = $derived(createScriptHistory(historyConnectionId));
   const objectSections = $derived(objectSectionsFor(supportedObjectTypes, selectedConnection?.driver));
   let selectedTable = $state('');
   let tableTab = $state<'data' | 'info'>('data');
@@ -58,6 +64,7 @@
     collapsedSchemas = { ...collapsedSchemas, [key]: !collapsedSchemas[key] };
   }
   async function openSchemaProperties(schema: DatabaseObject) {
+    sqlConsoleOpen = false;
     const connectionId = selectedConnection?.id;
     if (!connectionId) return;
     editingRow = null;
@@ -191,6 +198,7 @@
   }
 
   async function selectTable(name: string, page = 1, control: number | 'previous' | 'next' | null = null, kind: 'table' | 'view' | 'materialized_view' = isViewType(activeObjectType) ? activeObjectType : 'table') {
+    sqlConsoleOpen = false;
     if (!selectedConnection || !name) return;
     closeSchemaProperties();
     editingRow = null;
@@ -258,6 +266,7 @@
   }
 
   function selectSection(type: ObjectType) {
+    sqlConsoleOpen = false;
     closeSchemaProperties();
     editingRow = null;
     resetRowFilters();
@@ -277,6 +286,7 @@
   }
 
   async function selectObject(object: DatabaseObject) {
+    sqlConsoleOpen = false;
     closeSchemaProperties();
     editingRow = null;
     const changed = selectedObject?.name !== object.name || activeObjectType !== objectSectionType(object.type, selectedConnection?.driver);
@@ -415,14 +425,18 @@
       <section class="database-workspace" aria-label="Database workspace">
         <nav class="app-rail" aria-label="Workspace navigation">
           {#each objectSections as section}
-            <button class:active={activeObjectType === section.type} class="rail-button category-rail-button" data-object-type={section.type} aria-label={section.label} aria-current={activeObjectType === section.type ? 'page' : undefined} title={section.label} onclick={() => selectSection(section.type)}>
+            <button class:active={!sqlConsoleOpen && activeObjectType === section.type} class="rail-button category-rail-button" data-object-type={section.type} aria-label={section.label} aria-current={!sqlConsoleOpen && activeObjectType === section.type ? 'page' : undefined} title={section.label} onclick={() => selectSection(section.type)}>
               <ObjectIcon type={section.type} />
               {#if sectionCount(section.type) > 0}<small>{sectionCount(section.type) > 99 ? '99+' : sectionCount(section.type)}</small>{/if}
             </button>
           {/each}
+          <button class="rail-button" class:active={sqlConsoleOpen} aria-label="SQL console" title="SQL console" aria-current={sqlConsoleOpen ? 'page' : undefined} onclick={() => sqlConsoleOpen = true}><Terminal size={20} /></button>
           <span class="rail-spacer"></span>
         </nav>
         <aside class="schema-sidebar">
+          {#if sqlConsoleOpen}
+            {#key selectedConnection.id}<ScriptHistorySidebar history={scriptHistory} ready={!!sqlConsole} select={entry => sqlConsole?.repeat(entry)} />{/key}
+          {:else}
           <div class="tree-branch">
             <div class="object-list-heading"><strong>{sectionLabel}</strong><small aria-live="polite" aria-atomic="true">{tableSearch.trim() ? `${filteredCount} / ${sectionCount(activeObjectType)}` : sectionCount(activeObjectType)}</small></div>
             <div class="table-search"><Search size={14} /><input bind:this={filterInput} type="search" bind:value={tableSearch} placeholder={`Filter ${sectionLabel.toLowerCase()}`} aria-label="Filter database objects" aria-controls="database-object-list" autocomplete="off" spellcheck="false" onkeydown={(event) => { if (event.key === 'Escape') { event.preventDefault(); clearObjectFilter(); } }} />{#if tableSearch}<button class="clear-object-filter" aria-label="Clear object filter" title="Clear filter" onclick={clearObjectFilter}><X size={14} /></button>{/if}</div>
@@ -452,6 +466,7 @@
               {#if filteredCount === 0 && !databaseLoading && (!groupedSidebar || sidebarSchemaGroups.length === 0)}<p class="object-list-empty" role="status">{#if tableSearch.trim()}No matching {sectionLabel.toLowerCase()}.{:else}No {sectionLabel.toLowerCase()} found.{/if}</p>{/if}
             </nav>
           </div>
+          {/if}
           <div class="sidebar-footer">
             <button class="connection-status" onclick={() => void disconnect()} aria-label={`Disconnect from ${selectedConnection.name}`} title="Disconnect">
               <span class="connection-dot"></span><span>Connected</span><span class="sidebar-footer-host">{selectedConnection.driver === 'sqlite' ? selectedConnection.database : `${selectedConnection.host}:${selectedConnection.port}`}</span><Unplug size={15} />
@@ -460,7 +475,14 @@
         </aside>
 
         <div class="workspace-main">
-        {#if schemaProperties}
+        {#if sqlConsoleOpen}
+          {#await import('./lib/SqlConsole.svelte')}
+            <p role="status">Loading SQL console…</p>
+          {:then module}
+            {@const SqlConsole = module.default}
+            {#key selectedConnection.id}<SqlConsole connection={selectedConnection} history={scriptHistory} bind:this={sqlConsole} />{/key}
+          {/await}
+        {:else if schemaProperties}
           <section class="object-main" aria-label="Schema properties">
             <div class="object-detail-card">
               <div class="schema-properties-toolbar"><button class="schema-properties-back" onclick={closeSchemaProperties}><ArrowLeft size={15} />Back to {sectionLabel.toLowerCase()}</button><button class="schema-properties-close" aria-label="Close schema properties" title="Close schema properties" onclick={closeSchemaProperties}><X size={17} /></button></div>
