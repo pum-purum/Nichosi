@@ -48,27 +48,10 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Connection" }
         default: { $ref: "#/components/responses/Error" }
-  /api/connections/{connId}/scripts/preview:
-    post:
-      operationId: previewScript
-      description: Validate and split a SQL script without executing it. The script is a SQL ChangeSet; execution requires a matching preview token. SQL is user-authored source, never interpolated by the application. atomic=false explicitly permits partial application on writable profiles.
-      parameters: [ { $ref: "#/components/parameters/ConnId" } ]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/ScriptInput" }
-      responses:
-        "200":
-          description: SQL preview, bound to the script and connection for five minutes
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ScriptPreview" }
-        default: { $ref: "#/components/responses/Error" }
   /api/connections/{connId}/scripts/execute:
     post:
       operationId: executeScript
-      description: Execute a previewed script with a 30-second timeout and bounded results. atomic=true uses one transaction and rejects statements outside transaction guarantees. atomic=false is an explicit writable-profile-only mode for arbitrary SQL, including MySQL DDL; failures may leave earlier statements committed. Read-only profiles require atomic=true and database-level read-only enforcement. Each accepted execution is recorded in bounded server-side history; SQL source is never logged.
+      description: Validate and execute a user-authored script directly, without a preview step or token, with a 30-second timeout and bounded results. atomic=true uses one transaction and rejects statements outside transaction guarantees. atomic=false is an explicit writable-profile-only mode for arbitrary SQL, including MySQL DDL; failures may leave earlier statements committed. Read-only profiles require atomic=true and database-level read-only enforcement. Each accepted execution is recorded in bounded server-side history; SQL source is never logged.
       parameters: [ { $ref: "#/components/parameters/ConnId" } ]
       requestBody:
         required: true
@@ -85,7 +68,7 @@ paths:
   /api/connections/{connId}/scripts/history:
     get:
       operationId: listScriptHistory
-      description: Most recent 100 executions for this connection, newest first. History is local to this server session and is cleared on restart. Results are not retained. Repeating an entry requires a fresh preview and explicit execution.
+      description: Most recent 100 executions for this connection, newest first. History is local to this server session and is cleared on restart. Results are not retained. Repeating an entry loads its source and requires explicit execution.
       parameters: [ { $ref: "#/components/parameters/ConnId" } ]
       responses:
         "200":
@@ -331,7 +314,7 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
   schemas:
-    ScriptInput:
+    ScriptExecuteInput:
       type: object
       additionalProperties: false
       required: [sql]
@@ -339,22 +322,6 @@ components:
         sql: { type: string, minLength: 1, maxLength: 262144 }
         rowLimit: { type: integer, minimum: 1, maximum: 1000, default: 200 }
         atomic: { type: boolean, default: true, description: "Use one transaction. Disable only to explicitly permit partial application on writable profiles." }
-    ScriptExecuteInput:
-      type: object
-      additionalProperties: false
-      required: [sql, previewToken]
-      properties:
-        sql: { type: string, minLength: 1, maxLength: 262144 }
-        rowLimit: { type: integer, minimum: 1, maximum: 1000, default: 200 }
-        atomic: { type: boolean, default: true, description: "Use one transaction. Disable only to explicitly permit partial application on writable profiles." }
-        previewToken: { type: string }
-    ScriptPreview:
-      type: object
-      required: [statements, warnings, previewToken]
-      properties:
-        statements: { type: array, items: { type: string } }
-        warnings: { type: array, items: { type: string } }
-        previewToken: { type: string }
     ScriptResult:
       type: object
       required: [statement, columns, rows, truncated, rowsAffected]

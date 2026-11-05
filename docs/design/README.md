@@ -34,8 +34,7 @@ SQL tokenizer and shared CSS rules instead of separate default highlight themes.
 ## Buttons and controls
 
 Use one shared style for actions with the same role across all workspaces. The
-row-filter toolbar is the baseline for compact actions, including SQL Preview
-and Execute. Use the shared `.toolbar-button` class and control tokens in
+row-filter toolbar is the baseline for compact actions, including SQL Execute. Use the shared `.toolbar-button` class and control tokens in
 `frontend/src/app.css`: 30px minimum height, 12px text with 16px line height,
 6px vertical / 9px horizontal padding, 5px corners and icon gaps, and 14–15px
 icons. Use neutral raised surfaces, a subtle border, an accent hover border and
@@ -85,3 +84,12 @@ Tables and views share a structured row filter above the data grid. Open Filter 
 AND takes precedence over OR; grouping parentheses are unsupported (parentheses delimit IN lists only). For example, `id >= 10 OR name LIKE "Ann%" AND deleted IS NULL` matches either the ID condition or both later conditions. Invalid expressions show an inline error and cannot be applied. Conditions are sent as structured API filters, with values bound as database parameters, and apply to the row count as well as every page. Keep applied filters while sorting, paging, changing page size or refreshing after edits; changing the source or connection clears them. Retain column choices after a failed query so the user can correct and reapply a filter. Limit expressions to 100 conditions and IN lists to 1000 values.
 
 The row filter bar includes a labeled Refresh button for tables and views. Reload the current page with the applied filters and sorting, preserving the selected connection and relation. Disable Refresh while data loads and use the existing grid loading overlay. Keep Refresh available after row loading errors so the same query can be retried.
+
+## SQL console execution
+
+Keep the SQL console minimal: Execute runs the current script directly, and
+Ctrl/Cmd+Enter performs the same action. Do not add a preview button, preview panel,
+preview token or a mandatory confirmation step for user-authored SQL. Keep the
+partial-execution warning visible when that mode is enabled. Selecting history
+loads source into the editor without running it. Generated grid changes retain
+SQL preview because users do not author that SQL themselves.

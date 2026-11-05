@@ -145,9 +145,9 @@ free database pages and file-level overhead are not attributed to a table.
 ## SQL console
 
 Open SQL console from the connected workspace navigation rail. Write a script in
-the CodeMirror editor, choose the result row limit, then select Preview SQL (or
-Ctrl/Cmd+Enter). Execute script becomes available for the exact previewed source,
-limit and execution mode. Editing any of these requires a new preview. Unfinished
+the CodeMirror editor, choose the result row limit, then select Execute or press
+Ctrl/Cmd+Enter. The server validates and executes the current SQL and mode directly;
+there is no separate preview request or token. Unfinished
 drafts remain in memory while navigating between tables and connections.
 
 The default atomic mode executes the script in one transaction. SQLite and
@@ -158,9 +158,9 @@ nontransactional operations are unavailable in atomic mode.
 
 On explicitly writable connections, enable Allow partial execution to execute
 arbitrary SQL without a shared transaction, including MySQL/MariaDB DML and DDL.
-This is an approved exception to the grid ChangeSet policy: the mandatory preview
-and persistent warning explain that earlier changes may remain committed after a
-failure. The script stops at the first error and shows completed results. Read-only
+This is an approved exception to the grid ChangeSet policy: the persistent warning
+explains that earlier changes may remain committed after a failure. SQL console
+execution has no preview step; generated grid edits still require preview. The script stops at the first error and shows completed results. Read-only
 profiles cannot select this mode and remain read-only at the database level.
 MySQL DELIMITER commands, SQLite trigger bodies and PostgreSQL dollar quotes are
 supported. Executable comments/optimizer hints and backslash-escaped literals in
@@ -175,8 +175,8 @@ an unknown outcome; check database state before repeating.
 The SQL console replaces the object tree with script history in the left sidebar.
 History lists the most recent 100 executions per connection for this server
 session. Each entry shows SQL, status, timestamp and duration; selecting it loads
-the script into the editor. Refresh and Clear history are available in the sidebar. Selecting an entry restores SQL, row limit and mode, then requires another
-preview and explicit execution. Clear history removes retained source. Server
+the script into the editor. Refresh and Clear history are available in the sidebar. Selecting an entry restores SQL, row limit and mode, then requires explicit
+execution. Clear history removes retained source. Server
 restart clears all history; results are not stored. SQL is neither logged nor
 persisted in browser storage or on disk. See
 [the SQL console decision](decisions/001-sql-script-console.md) for constraints and

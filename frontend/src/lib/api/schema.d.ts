@@ -36,23 +36,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/connections/{connId}/scripts/preview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description Validate and split a SQL script without executing it. The script is a SQL ChangeSet; execution requires a matching preview token. SQL is user-authored source, never interpolated by the application. atomic=false explicitly permits partial application on writable profiles. */
-        post: operations["previewScript"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/connections/{connId}/scripts/execute": {
         parameters: {
             query?: never;
@@ -62,7 +45,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Execute a previewed script with a 30-second timeout and bounded results. atomic=true uses one transaction and rejects statements outside transaction guarantees. atomic=false is an explicit writable-profile-only mode for arbitrary SQL, including MySQL DDL; failures may leave earlier statements committed. Read-only profiles require atomic=true and database-level read-only enforcement. Each accepted execution is recorded in bounded server-side history; SQL source is never logged. */
+        /** @description Validate and execute a user-authored script directly, without a preview step or token, with a 30-second timeout and bounded results. atomic=true uses one transaction and rejects statements outside transaction guarantees. atomic=false is an explicit writable-profile-only mode for arbitrary SQL, including MySQL DDL; failures may leave earlier statements committed. Read-only profiles require atomic=true and database-level read-only enforcement. Each accepted execution is recorded in bounded server-side history; SQL source is never logged. */
         post: operations["executeScript"];
         delete?: never;
         options?: never;
@@ -77,7 +60,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Most recent 100 executions for this connection, newest first. History is local to this server session and is cleared on restart. Results are not retained. Repeating an entry requires a fresh preview and explicit execution. */
+        /** @description Most recent 100 executions for this connection, newest first. History is local to this server session and is cleared on restart. Results are not retained. Repeating an entry loads its source and requires explicit execution. */
         get: operations["listScriptHistory"];
         put?: never;
         post?: never;
@@ -306,16 +289,6 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        ScriptInput: {
-            sql: string;
-            /** @default 200 */
-            rowLimit: number;
-            /**
-             * @description Use one transaction. Disable only to explicitly permit partial application on writable profiles.
-             * @default true
-             */
-            atomic: boolean;
-        };
         ScriptExecuteInput: {
             sql: string;
             /** @default 200 */
@@ -325,12 +298,6 @@ export interface components {
              * @default true
              */
             atomic: boolean;
-            previewToken: string;
-        };
-        ScriptPreview: {
-            statements: string[];
-            warnings: string[];
-            previewToken: string;
         };
         ScriptResult: {
             statement: number;
@@ -685,33 +652,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Connection"];
-                };
-            };
-            default: components["responses"]["Error"];
-        };
-    };
-    previewScript: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                connId: components["parameters"]["ConnId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ScriptInput"];
-            };
-        };
-        responses: {
-            /** @description SQL preview, bound to the script and connection for five minutes */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScriptPreview"];
                 };
             };
             default: components["responses"]["Error"];

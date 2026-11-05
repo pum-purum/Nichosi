@@ -348,10 +348,9 @@ type Schema struct {
 // ScriptExecuteInput defines model for ScriptExecuteInput.
 type ScriptExecuteInput struct {
 	// Atomic Use one transaction. Disable only to explicitly permit partial application on writable profiles.
-	Atomic       *bool  `json:"atomic,omitempty"`
-	PreviewToken string `json:"previewToken"`
-	RowLimit     *int   `json:"rowLimit,omitempty"`
-	Sql          string `json:"sql"`
+	Atomic   *bool  `json:"atomic,omitempty"`
+	RowLimit *int   `json:"rowLimit,omitempty"`
+	Sql      string `json:"sql"`
 }
 
 // ScriptExecution defines model for ScriptExecution.
@@ -371,21 +370,6 @@ type ScriptHistoryEntry struct {
 	RowLimit   int       `json:"rowLimit"`
 	Sql        string    `json:"sql"`
 	Success    bool      `json:"success"`
-}
-
-// ScriptInput defines model for ScriptInput.
-type ScriptInput struct {
-	// Atomic Use one transaction. Disable only to explicitly permit partial application on writable profiles.
-	Atomic   *bool  `json:"atomic,omitempty"`
-	RowLimit *int   `json:"rowLimit,omitempty"`
-	Sql      string `json:"sql"`
-}
-
-// ScriptPreview defines model for ScriptPreview.
-type ScriptPreview struct {
-	PreviewToken string   `json:"previewToken"`
-	Statements   []string `json:"statements"`
-	Warnings     []string `json:"warnings"`
 }
 
 // ScriptResult defines model for ScriptResult.
@@ -478,9 +462,6 @@ type CreateConnectionJSONRequestBody = ConnectionInput
 
 // ExecuteScriptJSONRequestBody defines body for ExecuteScript for application/json ContentType.
 type ExecuteScriptJSONRequestBody = ScriptExecuteInput
-
-// PreviewScriptJSONRequestBody defines body for PreviewScript for application/json ContentType.
-type PreviewScriptJSONRequestBody = ScriptInput
 
 // ApplyChangesJSONRequestBody defines body for ApplyChanges for application/json ContentType.
 type ApplyChangesJSONRequestBody = ChangeSet

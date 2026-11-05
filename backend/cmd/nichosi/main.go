@@ -93,7 +93,6 @@ func main() {
 	mux.Handle("POST /api/connections/{connId}/tables/{table}/rows", application.authorize(http.HandlerFunc(application.queryRows)))
 	mux.Handle("POST /api/connections/{connId}/tables/{table}/changes/preview", application.authorize(http.HandlerFunc(application.previewChanges)))
 	mux.Handle("POST /api/connections/{connId}/tables/{table}/changes/apply", application.authorize(http.HandlerFunc(application.applyChanges)))
-	mux.Handle("POST /api/connections/{connId}/scripts/preview", application.authorize(http.HandlerFunc(application.previewScript)))
 	mux.Handle("POST /api/connections/{connId}/scripts/execute", application.authorize(http.HandlerFunc(application.executeScript)))
 	mux.Handle("GET /api/connections/{connId}/scripts/history", application.authorize(http.HandlerFunc(application.listScriptHistory)))
 	mux.Handle("DELETE /api/connections/{connId}/scripts/history", application.authorize(http.HandlerFunc(application.clearScriptHistory)))

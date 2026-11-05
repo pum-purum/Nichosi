@@ -9,149 +9,175 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestScriptHTTP(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "scripts.sqlite")
-	db, e := sql.Open("sqlite", path)
-	if e != nil {
-		t.Fatal(e)
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
 	}
-	_, e = db.Exec("CREATE TABLE entries(id INTEGER PRIMARY KEY); INSERT INTO entries VALUES(1),(2)")
-	if e != nil {
-		t.Fatal(e)
+	if _, err = db.Exec("CREATE TABLE entries(id INTEGER PRIMARY KEY); INSERT INTO entries VALUES(1),(2)"); err != nil {
+		t.Fatal(err)
 	}
 	db.Close()
 	writable := false
 	a := &app{}
-	item, e := a.openConnection(context.Background(), ConnectionInput{Driver: Sqlite, Database: path, Readonly: &writable})
-	if e != nil {
-		t.Fatal(e)
+	item, err := a.openConnection(context.Background(), ConnectionInput{Driver: Sqlite, Database: path, Readonly: &writable})
+	if err != nil {
+		t.Fatal(err)
 	}
 	defer item.pool.Close()
 	a.connections = []*profile{item}
-	call := func(handler http.HandlerFunc, body any) *httptest.ResponseRecorder {
-		raw, _ := json.Marshal(body)
-		r := httptest.NewRequest("POST", "/", strings.NewReader(string(raw)))
+	callRaw := func(handler http.HandlerFunc, body string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("POST", "/", strings.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
 		r.SetPathValue("connId", item.Id)
 		w := httptest.NewRecorder()
 		handler(w, r)
 		return w
 	}
-	prepare := func(source string) ScriptPreview {
-		w := call(a.previewScript, map[string]any{"sql": source, "rowLimit": 1})
-		if w.Code != 200 {
-			t.Fatal(w.Body.String())
+	call := func(handler http.HandlerFunc, body any) *httptest.ResponseRecorder {
+		raw, err := json.Marshal(body)
+		if err != nil {
+			t.Fatal(err)
 		}
-		var p ScriptPreview
-		json.Unmarshal(w.Body.Bytes(), &p)
-		return p
+		return callRaw(handler, string(raw))
 	}
-	source := "SELECT * FROM entries ORDER BY id;"
-	p := prepare(source)
-	w := call(a.executeScript, map[string]any{"sql": source + "SELECT 2;", "rowLimit": 1, "previewToken": p.PreviewToken})
-	if w.Code != 409 {
-		t.Fatal("changed SQL accepted", w.Body.String())
+	execution := func(body any) ScriptExecution {
+		w := call(a.executeScript, body)
+		if w.Code != 200 {
+			t.Fatalf("execution status %d: %s", w.Code, w.Body.String())
+		}
+		var result ScriptExecution
+		if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+			t.Fatal(err)
+		}
+		return result
 	}
-	p = prepare(source)
-	body := map[string]any{"sql": source, "rowLimit": 1, "previewToken": p.PreviewToken}
-	w = call(a.executeScript, body)
-	if w.Code != 200 {
-		t.Fatal(w.Body.String())
+	result := execution(map[string]any{"sql": "SELECT * FROM entries ORDER BY id;", "rowLimit": 1})
+	if !result.Entry.Success || !result.Entry.Atomic || result.Entry.RowLimit != 1 || len(result.Results) != 1 || !result.Results[0].Truncated || len(result.Results[0].Rows) != 1 {
+		t.Fatalf("unexpected successful execution: %+v", result)
 	}
-	var result ScriptExecution
-	json.Unmarshal(w.Body.Bytes(), &result)
-	if !result.Entry.Success || !result.Results[0].Truncated {
-		t.Fatal(w.Body.String())
-	}
-	if w = call(a.executeScript, body); w.Code != 409 {
-		t.Fatal("token reuse accepted")
-	}
-	p = prepare(source)
-	item.scripts.mu.Lock()
-	record := item.scripts.previews[p.PreviewToken]
-	record.expires = time.Now().Add(-time.Second)
-	item.scripts.previews[p.PreviewToken] = record
-	item.scripts.mu.Unlock()
-	body["previewToken"] = p.PreviewToken
-	if w = call(a.executeScript, body); w.Code != 409 {
-		t.Fatal("expired token accepted")
-	}
-	source = "INSERT INTO entries VALUES(3); SELECT * FROM absent;"
-	p = prepare(source)
-	w = call(a.executeScript, map[string]any{"sql": source, "rowLimit": 1, "previewToken": p.PreviewToken})
-	json.Unmarshal(w.Body.Bytes(), &result)
-	if result.Entry.Success || !result.RolledBack || len(result.Results) != 0 {
-		t.Fatal(w.Body.String())
+	result = execution(map[string]any{"sql": "INSERT INTO entries VALUES(3); SELECT * FROM absent;"})
+	if result.Entry.Success || !result.RolledBack || len(result.Results) != 0 || result.Entry.RowLimit != 200 || !strings.Contains(result.Entry.Error, "Statement 2 failed.") {
+		t.Fatalf("unexpected rollback: %+v", result)
 	}
 	var n int
-	item.pool.QueryRow("SELECT count(*) FROM entries").Scan(&n)
-	if n != 2 {
-		t.Fatal("rollback failed")
+	if err := item.pool.QueryRow("SELECT count(*) FROM entries").Scan(&n); err != nil || n != 2 {
+		t.Fatalf("rollback failed: %d %v", n, err)
 	}
-	w = call(a.listScriptHistory, nil)
+	w := call(a.listScriptHistory, nil)
 	var history []ScriptHistoryEntry
-	json.Unmarshal(w.Body.Bytes(), &history)
+	if err := json.Unmarshal(w.Body.Bytes(), &history); err != nil {
+		t.Fatal(err)
+	}
 	if len(history) != 2 || history[0].Success || !history[1].Success {
 		t.Fatal(w.Body.String())
 	}
 	if w = call(a.clearScriptHistory, nil); w.Code != 204 {
 		t.Fatal(w.Body.String())
 	}
-	w = call(a.listScriptHistory, nil)
-	if w.Body.String() != "[]\n" {
+	if w = call(a.listScriptHistory, nil); w.Body.String() != "[]\n" {
 		t.Fatal(w.Body.String())
 	}
 	for i := 0; i < 101; i++ {
-		p = prepare("SELECT 1;")
-		w = call(a.executeScript, map[string]any{"sql": "SELECT 1;", "rowLimit": 1, "previewToken": p.PreviewToken})
-		if w.Code != 200 {
-			t.Fatal(w.Body.String())
+		result = execution(map[string]any{"sql": "SELECT 1;"})
+		if !result.Entry.Success {
+			t.Fatal(result.Entry.Error)
 		}
 	}
 	w = call(a.listScriptHistory, nil)
-	json.Unmarshal(w.Body.Bytes(), &history)
+	if err := json.Unmarshal(w.Body.Bytes(), &history); err != nil {
+		t.Fatal(err)
+	}
 	if len(history) != 100 || history[0].Id == history[1].Id {
 		t.Fatal("history limit or execution identity broken")
 	}
-	source = "INSERT INTO entries VALUES(99); SELECT * FROM missing_partial;"
-	w = call(a.previewScript, map[string]any{"sql": source, "rowLimit": 1, "atomic": false})
-	if w.Code != 200 {
-		t.Fatal(w.Body.String())
+	result = execution(map[string]any{"sql": "INSERT INTO entries VALUES(99); SELECT * FROM missing_partial;", "atomic": false})
+	if result.Entry.Success || result.Entry.Atomic || result.RolledBack || len(result.Results) != 1 || result.Results[0].RowsAffected != 1 || !strings.Contains(result.Entry.Error, "Some changes may already be saved") {
+		t.Fatalf("unexpected partial execution: %+v", result)
 	}
-	json.Unmarshal(w.Body.Bytes(), &p)
-	w = call(a.executeScript, map[string]any{"sql": source, "rowLimit": 1, "atomic": false, "previewToken": p.PreviewToken})
-	json.Unmarshal(w.Body.Bytes(), &result)
-	if w.Code != 200 || result.Entry.Success || result.Entry.Atomic || result.RolledBack || len(result.Results) != 1 || result.Results[0].RowsAffected != 1 {
-		t.Fatal("partial result incorrect", w.Body.String())
+	if err := item.pool.QueryRow("SELECT count(*) FROM entries WHERE id=99").Scan(&n); err != nil || n != 1 {
+		t.Fatalf("partial changes lost: %d %v", n, err)
 	}
-	item.pool.QueryRow("SELECT count(*) FROM entries WHERE id=99").Scan(&n)
-	if n != 1 {
-		t.Fatal("non-atomic changes not retained")
+	for _, contentType := range []string{"", "text/plain", "application/x-www-form-urlencoded", "application/json; broken"} {
+		t.Run("reject content type "+contentType, func(t *testing.T) {
+			r := httptest.NewRequest("POST", "/", strings.NewReader(`{"sql":"INSERT INTO entries VALUES(777)","atomic":false}`))
+			r.SetPathValue("connId", item.Id)
+			if contentType != "" {
+				r.Header.Set("Content-Type", contentType)
+			}
+			w := httptest.NewRecorder()
+			a.executeScript(w, r)
+			if w.Code != http.StatusUnsupportedMediaType {
+				t.Fatalf("status %d: %s", w.Code, w.Body.String())
+			}
+		})
 	}
-	w = call(a.previewScript, map[string]any{"sql": "SELECT 1", "rowLimit": 1, "atomic": false})
-	json.Unmarshal(w.Body.Bytes(), &p)
-	w = call(a.executeScript, map[string]any{"sql": "SELECT 1", "rowLimit": 1, "atomic": true, "previewToken": p.PreviewToken})
-	if w.Code != 409 {
-		t.Fatal("execution mode not bound to preview")
+	if err := item.pool.QueryRow("SELECT count(*) FROM entries WHERE id=777").Scan(&n); err != nil || n != 0 {
+		t.Fatalf("unsupported content type executed SQL: %d %v", n, err)
 	}
-	item.Readonly = true
-	item.input.Readonly = nil
-	w = call(a.previewScript, map[string]any{"sql": "SELECT 1", "atomic": false})
-	if w.Code != 403 {
-		t.Fatal("non-atomic defaultreadonly bypass", w.Body.String())
+	r := httptest.NewRequest("POST", "/", strings.NewReader(`{"sql":"SELECT 1"}`))
+	r.SetPathValue("connId", item.Id)
+	r.Header.Set("Content-Type", "application/json; charset=utf-8")
+	charsetResponse := httptest.NewRecorder()
+	a.executeScript(charsetResponse, r)
+	if charsetResponse.Code != http.StatusOK {
+		t.Fatal(charsetResponse.Body.String())
 	}
-	w = call(a.previewScript, map[string]any{"sql": "DELETE FROM entries"})
-	if w.Code != 400 {
-		t.Fatal("readonly bypass", w.Body.String())
+	for _, tc := range []struct{ name, body string }{
+		{"unknown field", `{"sql":"SELECT 1","unexpected":true}`},
+		{"legacy preview token", `{"sql":"SELECT 1","previewToken":"obsolete"}`},
+		{"zero limit", `{"sql":"SELECT 1","rowLimit":0}`},
+		{"excessive limit", `{"sql":"SELECT 1","rowLimit":1001}`},
+		{"missing SQL", `{}`},
+		{"empty SQL", `{"sql":""}`},
+		{"comments only", `{"sql":"-- comment\n/* comment */"}`},
+		{"malformed SQL literal", `{"sql":"SELECT 'unfinished"}`},
+		{"unsupported atomic command", `{"sql":"BEGIN"}`},
+		{"malformed JSON", `{"sql":`},
+		{"multiple bodies", `{"sql":"SELECT 1"} {"sql":"SELECT 2"}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if w := callRaw(a.executeScript, tc.body); w.Code != 400 {
+				t.Fatalf("status %d: %s", w.Code, w.Body.String())
+			}
+		})
 	}
-	w = call(a.previewScript, map[string]any{"sql": "SELECT 1", "rowLimit": 1001})
-	if w.Code != 400 {
-		t.Fatal("unbounded query accepted")
+	for _, tc := range []struct {
+		name       string
+		readonly   bool
+		configured *bool
+	}{
+		{"default readonly", false, nil},
+		{"explicit readonly", true, &writable},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			item.Readonly = tc.readonly
+			item.input.Readonly = tc.configured
+			if w := call(a.executeScript, map[string]any{"sql": "SELECT 1", "atomic": false}); w.Code != 403 {
+				t.Fatalf("non-atomic readonly bypass: %d %s", w.Code, w.Body.String())
+			}
+			if w := call(a.executeScript, map[string]any{"sql": "DELETE FROM entries"}); w.Code != 400 {
+				t.Fatalf("atomic readonly bypass: %d %s", w.Code, w.Body.String())
+			}
+			result = execution(map[string]any{"sql": "SELECT 1"})
+			if !result.Entry.Success {
+				t.Fatal(result.Entry.Error)
+			}
+		})
 	}
-	w = call(a.previewScript, map[string]any{"sql": "SELECT 1", "unexpected": true})
-	if w.Code != 400 {
-		t.Fatal("unknown field accepted")
+	item.Readonly = false
+	item.input.Readonly = &writable
+	pool := item.pool
+	item.pool = nil
+	if w := call(a.executeScript, map[string]any{"sql": "SELECT 1"}); w.Code != 409 {
+		t.Fatalf("disconnected execution: %d", w.Code)
+	}
+	item.pool = pool
+	a.connections = nil
+	if w := call(a.executeScript, map[string]any{"sql": "SELECT 1"}); w.Code != 404 {
+		t.Fatalf("unknown connection execution: %d", w.Code)
 	}
 }

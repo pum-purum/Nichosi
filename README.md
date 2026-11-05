@@ -168,21 +168,21 @@ journal files), then use its container path in the profile.
 
 ## SQL scripts and history
 
-Open SQL console from a connected database's navigation rail. Write SQL, select
-Preview SQL (Ctrl/Cmd+Enter), review the statements, then Execute script. Results
-include row counts, affected rows and execution duration. Changing SQL, the row
-limit or execution mode requires a new preview.
+Open SQL console from a connected database's navigation rail. Write SQL, choose
+the result row limit, then select **Execute** or press Ctrl/Cmd+Enter. The server
+validates and executes the script directly; there is no separate preview step.
+Results include row counts, affected rows and execution duration.
 
 Atomic mode uses one transaction; MySQL/MariaDB support read queries in this mode.
 On a profile with explicit `readonly:false`, enable **Allow partial execution** to
-run arbitrary SQL, including MySQL/MariaDB DDL and DML. The preview warns that
+run arbitrary SQL, including MySQL/MariaDB DDL and DML. The console warns that
 previous statements may remain committed if a later statement fails. Read-only
 profiles cannot enable this mode. MySQL `DELIMITER` directives are supported for
 routine definitions.
 
 History retains the latest 100 executions per connection until the server
 restarts. History appears in the left sidebar while the SQL console is open.
-Select an entry to restore its source, row limit and mode; preview and execute it
-again explicitly. **Clear history** removes retained SQL. Neither SQL
-nor results are written to browser storage or disk. Unfinished drafts survive
-workspace navigation in memory.
+Select an entry to restore its source, row limit and mode, then execute it again
+explicitly. **Clear history** removes retained SQL. Neither SQL nor results are
+written to browser storage or disk. Unfinished drafts survive workspace navigation
+in memory. Generated row edits still require their ChangeSet SQL preview.
