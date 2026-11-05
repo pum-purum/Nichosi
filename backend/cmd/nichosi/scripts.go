@@ -9,6 +9,10 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"net/url"
+	"regexp"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -106,7 +110,7 @@ func (a *app) executeScript(w http.ResponseWriter, r *http.Request) {
 	outputs, err := driver.ExecuteScriptMode(ctx, item.pool, string(item.Driver), readonly, statements, limit, atomic)
 	entry := ScriptHistoryEntry{Atomic: atomic, Id: scriptID(), Sql: input.Sql, RowLimit: limit, ExecutedAt: started, DurationMs: time.Since(started).Milliseconds(), Success: err == nil, Error: ""}
 	if err != nil {
-		entry.Error = driver.ScriptErrorMessageMode(err, atomic)
+		entry.Error = redactScriptError(driver.ScriptErrorMessage(err), item.input.Password)
 	}
 	state.mu.Lock()
 	state.history = append([]ScriptHistoryEntry{entry}, state.history...)
@@ -141,4 +145,59 @@ func (a *app) clearScriptHistory(w http.ResponseWriter, r *http.Request) {
 	item.scripts.history = nil
 	item.scripts.mu.Unlock()
 	w.WriteHeader(http.StatusNoContent)
+}
+
+var scriptURLDSN = regexp.MustCompile(`(?i)\b(?:postgres(?:ql)?|mysql|mariadb)://[^\s"'<>]+`)
+var scriptMySQLDSN = regexp.MustCompile(`[^\s:"'<>]+:[^\r\n]*?@(?:(?:tcp|unix)\([^\r\n)]*\))?/[^\s"'<>]*`)
+var scriptPasswordField = regexp.MustCompile(`(?i)\bpassword\s*=\s*(?:'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|[^\s;,]+)`)
+var scriptConnectionField = regexp.MustCompile(`(?i)\b(?:host|port|user|password|dbname|database|sslmode)\s*=\s*(?:'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|[^\s;,]+)`)
+
+// Redaction happens before diagnostics enter either response payloads or session history.
+func redactScriptError(message string, password *string) string {
+	if password != nil && *password != "" {
+		type representation struct {
+			value          string
+			percentEncoded bool
+		}
+		raw := *password
+		slashEscaped := strings.NewReplacer("\\", "\\\\", "\x00", "\\0", "\n", "\\n", "\r", "\\r", "\x1a", "\\Z", "\t", "\\t", "'", "\\'", "\"", "\\\"").Replace(raw)
+		variants := []representation{
+			{raw, false},
+			{strings.ReplaceAll(raw, "'", "''"), false},
+			{strings.ReplaceAll(raw, "\"", "\"\""), false},
+			{strings.ReplaceAll(raw, "`", "``"), false},
+			{slashEscaped, false},
+			{strings.ReplaceAll(strings.ReplaceAll(raw, "\\", "\\\\"), "'", "''"), false},
+			{url.QueryEscape(raw), true}, {url.PathEscape(raw), true},
+		}
+		// Prefer complete escaped forms to shorter raw matches inside them.
+		sort.SliceStable(variants, func(i, j int) bool { return len(variants[i].value) > len(variants[j].value) })
+		patterns := make([]string, 0, len(variants))
+		for _, variant := range variants {
+			if !variant.percentEncoded {
+				patterns = append(patterns, regexp.QuoteMeta(variant.value))
+				continue
+			}
+			var pattern strings.Builder
+			for i := 0; i < len(variant.value); i++ {
+				if variant.value[i] == '%' && i+2 < len(variant.value) {
+					pattern.WriteString("(?i:" + regexp.QuoteMeta(variant.value[i:i+3]) + ")")
+					i += 2
+				} else {
+					pattern.WriteString(regexp.QuoteMeta(variant.value[i : i+1]))
+				}
+			}
+			patterns = append(patterns, pattern.String())
+		}
+		// One pass prevents shorter variants from rewriting replacement markers.
+		message = regexp.MustCompile(strings.Join(patterns, "|")).ReplaceAllString(message, "[redacted]")
+	}
+	message = scriptURLDSN.ReplaceAllString(message, "[redacted DSN]")
+	message = scriptMySQLDSN.ReplaceAllString(message, "[redacted DSN]")
+	if len(scriptConnectionField.FindAllString(message, -1)) > 1 {
+		message = scriptConnectionField.ReplaceAllString(message, "[redacted DSN]")
+	} else {
+		message = scriptPasswordField.ReplaceAllString(message, "password=[redacted]")
+	}
+	return message
 }

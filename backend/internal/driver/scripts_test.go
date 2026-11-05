@@ -10,6 +10,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/go-sql-driver/mysql"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func TestSplitScript(t *testing.T) {
@@ -322,5 +325,37 @@ func TestPostgresScriptModes(t *testing.T) {
 	out, err = run("SELECT current_setting('application_name')", false, false)
 	if err != nil || out[0].Rows[0][0] == "nichosi-script-test" {
 		t.Fatal("session state leaked")
+	}
+}
+
+func TestScriptErrorMessagePreservesDatabaseError(t *testing.T) {
+	mysqlError := &mysql.MySQLError{Number: 1064, SQLState: [5]byte{'4', '2', '0', '0', '0'}, Message: "You have an error in your SQL syntax near 'FRO entries' at line 1"}
+	postgresError := &pgconn.PgError{Severity: "ERROR", Code: "42601", Message: `syntax error at or near "FRO"`}
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	_, sqliteError := db.Exec("SELECT * FROM missing_error_table")
+	if sqliteError == nil {
+		t.Fatal("expected database error")
+	}
+	for _, databaseError := range []error{mysqlError, postgresError, sqliteError} {
+		wrapped := &ScriptStatementError{Statement: 2, Err: fmt.Errorf("driver operation: %w", databaseError)}
+		if got := ScriptErrorMessage(wrapped); got != databaseError.Error() {
+			t.Fatalf("got %q; want %q", got, databaseError.Error())
+		}
+	}
+	for _, tc := range []struct {
+		err  error
+		want string
+	}{
+		{context.DeadlineExceeded, "Execution timed out."},
+		{context.Canceled, "Execution cancelled."},
+		{errors.New("result exceeds 4 MiB"), "result exceeds 4 MiB"},
+	} {
+		if got := ScriptErrorMessage(&ScriptStatementError{Statement: 1, Err: tc.err}); got != tc.want {
+			t.Fatalf("got %q; want %q", got, tc.want)
+		}
 	}
 }

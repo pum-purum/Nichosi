@@ -41,8 +41,9 @@ requires explicit execution.
 
 Limits: 256 KiB of SQL, 100 statements, a 30-second execution deadline, 200 rows per
 result by default (maximum 1000), 1000 rows across all results and a 4 MiB result
-value budget. Truncated results are marked. Database errors are described without
-echoing SQL, credentials or database values.
+value budget. Truncated results are marked. Database errors display the original driver message without application boilerplate.
+Connection credentials and DSN-shaped strings are redacted before messages are
+returned or retained in history. Local execution failures use concise messages.
 
 Transaction guarantees cover transactional database changes. Database privileges
 remain authoritative: the console is not a sandbox for privileged routines, file

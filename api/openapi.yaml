@@ -342,7 +342,7 @@ components:
         executedAt: { type: string, format: date-time }
         durationMs: { type: integer, format: int64 }
         success: { type: boolean }
-        error: { type: string }
+        error: { type: string, description: "Database driver error text without application boilerplate, with connection secrets redacted. Local execution failures use concise messages." }
     ScriptExecution:
       type: object
       required: [entry, results, rolledBack]

@@ -93,3 +93,18 @@ preview token or a mandatory confirmation step for user-authored SQL. Keep the
 partial-execution warning visible when that mode is enabled. Selecting history
 loads source into the editor without running it. Generated grid changes retain
 SQL preview because users do not author that SQL themselves.
+
+Keep SQL console chrome quiet: omit database/mode prose beside the heading,
+persistent keyboard shortcut hints, repeated success labels in history and the
+success/duration headline above results. History uses soft green/red backgrounds for success/failure, without status
+icons or persistent status words, and keeps duration and timestamp. Failed entries
+also use a dashed border; status stays explicit in tooltips and accessible labels.
+Selection uses a separate neutral inset marker so it does not overwrite status. Put the shortcut in the Execute tooltip
+and expose execution mode through a compact Transaction/Direct selector. Show a
+short partial-application warning only in Direct mode; retain actionable errors.
+
+Show database error messages as returned by the driver, without generic advice,
+statement-failed prefixes or duplicate rollback announcements. Preserve line
+breaks and wrap long messages. Connection credentials remain redacted; local
+failures and unknown commit outcomes still need concise factual messages. Do not
+show a persistent history-retention caption under the Script history heading.

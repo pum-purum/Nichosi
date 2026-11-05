@@ -171,10 +171,10 @@ journal files), then use its container path in the profile.
 Open SQL console from a connected database's navigation rail. Write SQL, choose
 the result row limit, then select **Execute** or press Ctrl/Cmd+Enter. The server
 validates and executes the script directly; there is no separate preview step.
-Results include row counts, affected rows and execution duration.
+Results include row counts and affected rows; execution duration appears in history.
 
 Atomic mode uses one transaction; MySQL/MariaDB support read queries in this mode.
-On a profile with explicit `readonly:false`, enable **Allow partial execution** to
+On a profile with explicit `readonly:false`, select **Direct** in the execution-mode selector to
 run arbitrary SQL, including MySQL/MariaDB DDL and DML. The console warns that
 previous statements may remain committed if a later statement fails. Read-only
 profiles cannot enable this mode. MySQL `DELIMITER` directives are supported for

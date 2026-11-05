@@ -317,6 +317,7 @@ export interface components {
             /** Format: int64 */
             durationMs: number;
             success: boolean;
+            /** @description Database driver error text without application boilerplate, with connection secrets redacted. Local execution failures use concise messages. */
             error: string;
         };
         ScriptExecution: {

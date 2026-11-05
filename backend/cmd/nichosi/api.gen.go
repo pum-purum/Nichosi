@@ -362,8 +362,10 @@ type ScriptExecution struct {
 
 // ScriptHistoryEntry defines model for ScriptHistoryEntry.
 type ScriptHistoryEntry struct {
-	Atomic     bool      `json:"atomic"`
-	DurationMs int64     `json:"durationMs"`
+	Atomic     bool  `json:"atomic"`
+	DurationMs int64 `json:"durationMs"`
+
+	// Error Database driver error text without application boilerplate, with connection secrets redacted. Local execution failures use concise messages.
 	Error      string    `json:"error"`
 	ExecutedAt time.Time `json:"executedAt"`
 	Id         string    `json:"id"`

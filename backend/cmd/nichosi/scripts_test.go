@@ -60,7 +60,7 @@ func TestScriptHTTP(t *testing.T) {
 		t.Fatalf("unexpected successful execution: %+v", result)
 	}
 	result = execution(map[string]any{"sql": "INSERT INTO entries VALUES(3); SELECT * FROM absent;"})
-	if result.Entry.Success || !result.RolledBack || len(result.Results) != 0 || result.Entry.RowLimit != 200 || !strings.Contains(result.Entry.Error, "Statement 2 failed.") {
+	if result.Entry.Success || !result.RolledBack || len(result.Results) != 0 || result.Entry.RowLimit != 200 || result.Entry.Error != "SQL logic error: no such table: absent (1)" {
 		t.Fatalf("unexpected rollback: %+v", result)
 	}
 	var n int
@@ -95,7 +95,7 @@ func TestScriptHTTP(t *testing.T) {
 		t.Fatal("history limit or execution identity broken")
 	}
 	result = execution(map[string]any{"sql": "INSERT INTO entries VALUES(99); SELECT * FROM missing_partial;", "atomic": false})
-	if result.Entry.Success || result.Entry.Atomic || result.RolledBack || len(result.Results) != 1 || result.Results[0].RowsAffected != 1 || !strings.Contains(result.Entry.Error, "Some changes may already be saved") {
+	if result.Entry.Success || result.Entry.Atomic || result.RolledBack || len(result.Results) != 1 || result.Results[0].RowsAffected != 1 || result.Entry.Error != "SQL logic error: no such table: missing_partial (1)" {
 		t.Fatalf("unexpected partial execution: %+v", result)
 	}
 	if err := item.pool.QueryRow("SELECT count(*) FROM entries WHERE id=99").Scan(&n); err != nil || n != 1 {
@@ -179,5 +179,51 @@ func TestScriptHTTP(t *testing.T) {
 	a.connections = nil
 	if w := call(a.executeScript, map[string]any{"sql": "SELECT 1"}); w.Code != 404 {
 		t.Fatalf("unknown connection execution: %d", w.Code)
+	}
+}
+
+func TestRedactScriptError(t *testing.T) {
+	secret := "test secret/p@ss?&"
+	for _, tc := range []struct{ name, message, want string }{
+		{"ordinary syntax", "Error 1064 (42000): syntax error near 'SELECT' at line 1", "Error 1064 (42000): syntax error near 'SELECT' at line 1"},
+		{"raw password", "rejected value test secret/p@ss?&", "rejected value [redacted]"},
+		{"query escaped password", "rejected value test+secret%2Fp%40ss%3F%26", "rejected value [redacted]"},
+		{"path escaped password", "rejected value test%20secret%2Fp@ss%3F&", "rejected value [redacted]"},
+		{"lowercase percent escapes", "rejected value test+secret%2fp%40ss%3f%26", "rejected value [redacted]"},
+		{"postgres URL", "cannot use postgres://alice:another-secret@localhost/app", "cannot use [redacted DSN]"},
+		{"mysql URL", "cannot use mysql://alice:another-secret@localhost/app", "cannot use [redacted DSN]"},
+		{"mysql DSN", "cannot use alice:another-secret@tcp(localhost:3306)/app?charset=utf8mb4", "cannot use [redacted DSN]"},
+		{"mysql default network DSN", "cannot use alice:another-secret@/app", "cannot use [redacted DSN]"},
+		{"pgx fields without password", "rejected host=localhost user=alice dbname=app", "rejected [redacted DSN] [redacted DSN] [redacted DSN]"},
+		{"password field", "rejected password='another secret'", "rejected password=[redacted]"},
+		{"pgx fields", "rejected host=localhost user=alice password='another secret' dbname=app", "rejected [redacted DSN] [redacted DSN] [redacted DSN] [redacted DSN]"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := redactScriptError(tc.message, &secret); got != tc.want {
+				t.Fatalf("got %q; want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestRedactSQLEscapedConnectionPassword(t *testing.T) {
+	for _, tc := range []struct{ name, secret, echo string }{
+		{"doubled single quote", "p'ass", "p''ass"},
+		{"backslash single quote", "p'ass", `p\'ass`},
+		{"doubled double quote", `p"ass`, `p""ass`},
+		{"backslash double quote", `p"ass`, `p\"ass`},
+		{"backslash", `p\ass`, `p\\ass`},
+		{"combined mysql escapes", `p'\ass`, `p\'\\ass`},
+		{"combined postgres escapes", `p'\ass`, `p''\\ass`},
+		{"unicode quote", "пар'оль", "пар''оль"},
+		{"newline", "pass\nword", `pass\nword`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			message := "Error 1064 (42000): syntax error near '" + tc.echo + "' at line 1"
+			want := "Error 1064 (42000): syntax error near '[redacted]' at line 1"
+			if got := redactScriptError(message, &tc.secret); got != want {
+				t.Fatalf("got %q; want %q", got, want)
+			}
+		})
 	}
 }

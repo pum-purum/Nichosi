@@ -156,7 +156,7 @@ supports read-only queries because arbitrary DDL and writes cannot guarantee
 rollback across engines and routines. Session settings, transaction commands and
 nontransactional operations are unavailable in atomic mode.
 
-On explicitly writable connections, enable Allow partial execution to execute
+On explicitly writable connections, select Direct in the execution-mode selector to execute
 arbitrary SQL without a shared transaction, including MySQL/MariaDB DML and DDL.
 This is an approved exception to the grid ChangeSet policy: the persistent warning
 explains that earlier changes may remain committed after a failure. SQL console
@@ -166,15 +166,19 @@ MySQL DELIMITER commands, SQLite trigger bodies and PostgreSQL dollar quotes are
 supported. Executable comments/optimizer hints and backslash-escaped literals in
 MySQL/PostgreSQL are rejected; use doubled quotes or dollar quoting.
 
-Results show columns, rows, affected counts, truncation and duration. Limits are
+Results show columns, rows, affected counts and truncation. Duration appears in history. Limits are
 256 KiB of SQL, 100 statements, 30 seconds, 200 rows per result by default (maximum
 1000), 1000 rows total and 4 MiB of serialized result column/row data. Large queries
 should include explicit SQL limits. Connection loss during commit is reported as
 an unknown outcome; check database state before repeating.
+SQL errors show the database driver message directly, without generic application
+advice or a duplicate rollback caption. Connection credentials and DSNs are
+redacted before errors are returned or stored in history.
 
 The SQL console replaces the object tree with script history in the left sidebar.
 History lists the most recent 100 executions per connection for this server
-session. Each entry shows SQL, status, timestamp and duration; selecting it loads
+session. Each entry shows SQL, timestamp and duration, with green/red outcome highlighting
+and no status icons; selecting it loads
 the script into the editor. Refresh and Clear history are available in the sidebar. Selecting an entry restores SQL, row limit and mode, then requires explicit
 execution. Clear history removes retained source. Server
 restart clears all history; results are not stored. SQL is neither logged nor

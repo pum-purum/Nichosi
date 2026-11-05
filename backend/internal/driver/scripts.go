@@ -9,12 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"regexp"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
@@ -456,53 +456,34 @@ func ExecuteScriptMode(ctx context.Context, pool *sql.DB, dialect string, readon
 	return outputs, nil
 }
 
-// scriptDiagnostic exposes numeric codes and SQLSTATE only, never driver messages.
-func scriptDiagnostic(err error) string {
+// ScriptErrorMessage preserves database diagnostics; the HTTP boundary redacts connection secrets.
+func ScriptErrorMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	if errors.Is(err, ErrScriptOutcomeUnknown) {
+		return "Could not confirm the transaction outcome. Changes may have committed; check database state before repeating the script."
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "Execution timed out."
+	}
+	if errors.Is(err, context.Canceled) {
+		return "Execution cancelled."
+	}
 	var mysqlError *mysql.MySQLError
 	if errors.As(err, &mysqlError) {
-		code := fmt.Sprintf("MySQL error %d", mysqlError.Number)
-		state := string(mysqlError.SQLState[:])
-		if regexp.MustCompile(`^[A-Z0-9]{5}$`).MatchString(state) {
-			code += ", SQLSTATE " + state
-		}
-		return " (" + code + ")"
+		return mysqlError.Error()
 	}
-	type stateError interface{ SQLState() string }
-	var state stateError
-	if errors.As(err, &state) && regexp.MustCompile(`^[A-Z0-9]{5}$`).MatchString(state.SQLState()) {
-		return " (SQLSTATE " + state.SQLState() + ")"
+	var postgresError *pgconn.PgError
+	if errors.As(err, &postgresError) {
+		return postgresError.Error()
 	}
 	var sqliteError *sqlite.Error
 	if errors.As(err, &sqliteError) {
-		return fmt.Sprintf(" (SQLite code %d)", sqliteError.Code())
+		return sqliteError.Error()
 	}
-	return ""
-}
-
-// ScriptErrorMessage exposes safe diagnostic codes without echoing SQL, data or credentials.
-func ScriptErrorMessage(err error) string {
-	return ScriptErrorMessageMode(err, true)
-}
-
-// ScriptErrorMessageMode avoids claiming rollback for unrestricted execution.
-func ScriptErrorMessageMode(err error, atomic bool) string {
-	if atomic && errors.Is(err, ErrScriptOutcomeUnknown) {
-		return "Could not confirm the transaction outcome. Changes may have committed; check database state before repeating the script."
+	for errors.Unwrap(err) != nil {
+		err = errors.Unwrap(err)
 	}
-	prefix := ""
-	var statementError *ScriptStatementError
-	if errors.As(err, &statementError) && statementError.Statement > 0 {
-		prefix = fmt.Sprintf("Statement %d failed. ", statementError.Statement)
-	}
-	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-		if atomic {
-			return prefix + "Execution timed out or was cancelled; the transaction was rolled back."
-		}
-		return prefix + "Execution timed out or was cancelled. Some changes may already be saved; check database state before repeating the script."
-	}
-	diagnostic := scriptDiagnostic(err)
-	if atomic {
-		return prefix + "Database rejected the script or the result exceeded its limits" + diagnostic + "; the transaction was rolled back. Check SQL syntax, permissions and constraints."
-	}
-	return prefix + "Execution failed or the result exceeded its limits" + diagnostic + ". Some changes may already be saved; check SQL syntax, permissions, constraints and database state before repeating the script."
+	return err.Error()
 }
