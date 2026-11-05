@@ -214,7 +214,6 @@ kbd { flex: 0 0 auto; padding: 2px 4px; border: 1px solid #303930; border-radius
 .schema-sidebar { min-height: calc(100vh - 60px); padding: 14px 11px 12px; border-right-color: #343638; background: #202224; }
 .tree-branch { min-height: 0; flex: 1 1 auto; overflow: auto; padding-left: 0; overscroll-behavior: contain; }
 .object-list-heading { display: flex; align-items: center; justify-content: space-between; margin: 12px 3px 3px; color: #c9cdca; font-size: 12px; }
-.object-list-heading > small { color: #969b97; font: 11px var(--mono); }
 .table-search { height: 34px; margin: 5px 0 6px 22px; padding: 0 9px; border-color: transparent; border-radius: 6px; background: transparent; }
 .tree-branch > .table-search { margin-left: 0; }
 .table-search:focus-within { border-color: #4a4f51; background: #272a2c; }

@@ -438,7 +438,7 @@
             {#key selectedConnection.id}<ScriptHistorySidebar history={scriptHistory} ready={!!sqlConsole} select={entry => sqlConsole?.repeat(entry)} />{/key}
           {:else}
           <div class="tree-branch">
-            <div class="object-list-heading"><strong>{sectionLabel}</strong><small aria-live="polite" aria-atomic="true">{tableSearch.trim() ? `${filteredCount} / ${sectionCount(activeObjectType)}` : sectionCount(activeObjectType)}</small></div>
+            <div class="object-list-heading"><strong>{sectionLabel}</strong></div>
             <div class="table-search"><Search size={14} /><input bind:this={filterInput} type="search" bind:value={tableSearch} placeholder={`Filter ${sectionLabel.toLowerCase()}`} aria-label="Filter database objects" aria-controls="database-object-list" autocomplete="off" spellcheck="false" onkeydown={(event) => { if (event.key === 'Escape') { event.preventDefault(); clearObjectFilter(); } }} />{#if tableSearch}<button class="clear-object-filter" aria-label="Clear object filter" title="Clear filter" onclick={clearObjectFilter}><X size={14} /></button>{/if}</div>
             <nav id="database-object-list" class="table-nav" aria-label={objectSections.find((section) => section.type === activeObjectType)?.label ?? 'Database objects'}>
               {#if groupedSidebar}

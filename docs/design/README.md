@@ -75,7 +75,7 @@ Views share the table data workspace, including typed cells, loading overlays, r
 
 ## Sidebar object filtering
 
-Filter every object category immediately by name, ignoring case and surrounding whitespace. All whitespace-separated search words must match; account searches include the display identity and the server-reported name/host. Keep punctuation literal. Show matching/total counts and an explicit empty result message. Provide a clear button and Escape shortcut, retain the current detail selection while filtering, and reset the query when changing sections or connections. Table size scales remain based on all tables.
+Filter every object category immediately by name, ignoring case and surrounding whitespace. All whitespace-separated search words must match; account searches include the display identity and the server-reported name/host. Keep punctuation literal. Keep entity counts in the far-left navigation rail, without duplicate counts in middle-panel headings, and show an explicit empty result message. Provide a clear button and Escape shortcut, retain the current detail selection while filtering, and reset the query when changing sections or connections. Table size scales remain based on all tables.
 
 ## Row filtering
 
@@ -108,3 +108,7 @@ statement-failed prefixes or duplicate rollback announcements. Preserve line
 breaks and wrap long messages. Connection credentials remain redacted; local
 failures and unknown commit outcomes still need concise factual messages. Do not
 show a persistent history-retention caption under the Script history heading.
+
+Middle-panel headings must not repeat entity/history counters. Keep the Script
+history heading and its actions on one aligned row, with a 16px gap before the
+first history entry so the list does not touch the header controls.
