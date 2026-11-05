@@ -146,22 +146,21 @@ free database pages and file-level overhead are not attributed to a table.
 
 Open SQL console from the connected workspace navigation rail. Write a script in
 the CodeMirror editor, choose the result row limit, then select Execute or press
-Ctrl/Cmd+Enter. The server validates and executes the current SQL and mode directly;
+Ctrl/Cmd+Enter. The server validates and executes the current SQL directly;
 there is no separate preview request or token. Unfinished
 drafts remain in memory while navigating between tables and connections.
 
-The default atomic mode executes the script in one transaction. SQLite and
-PostgreSQL support transactional queries and changes. MySQL/MariaDB atomic mode
-supports read-only queries because arbitrary DDL and writes cannot guarantee
-rollback across engines and routines. Session settings, transaction commands and
-nontransactional operations are unavailable in atomic mode.
+The console always sends `atomic: true`; there is no execution-mode selector.
+Restoring history or drafts does not restore an earlier execution mode.
+SQLite and PostgreSQL support transactional queries and changes. MySQL/MariaDB
+transactional execution supports read-only queries because arbitrary DDL and
+writes cannot guarantee rollback across engines and routines. Session settings,
+transaction commands and nontransactional operations are unavailable in this mode.
+A single SQL statement does not itself guarantee transactional DDL.
 
-On explicitly writable connections, select Direct in the execution-mode selector to execute
-arbitrary SQL without a shared transaction, including MySQL/MariaDB DML and DDL.
-This is an approved exception to the grid ChangeSet policy: the persistent warning
-explains that earlier changes may remain committed after a failure. SQL console
-execution has no preview step; generated grid edits still require preview. The script stops at the first error and shows completed results. Read-only
-profiles cannot select this mode and remain read-only at the database level.
+The API retains its explicit writable-profile-only non-atomic option for existing
+clients. SQL console execution has no preview step; generated grid edits still
+require preview. Read-only profiles remain read-only at the database level.
 MySQL DELIMITER commands, SQLite trigger bodies and PostgreSQL dollar quotes are
 supported. Executable comments/optimizer hints and backslash-escaped literals in
 MySQL/PostgreSQL are rejected; use doubled quotes or dollar quoting.
@@ -179,7 +178,7 @@ The SQL console replaces the object tree with script history in the left sidebar
 History lists the most recent 100 executions per connection for this server
 session. Each entry shows SQL, timestamp and duration, with green/red outcome highlighting
 and no status icons; selecting it loads
-the script into the editor. Refresh and Clear history are available in the sidebar. Selecting an entry restores SQL, row limit and mode, then requires explicit
+the script into the editor. Refresh and Clear history are available in the sidebar. Selecting an entry restores SQL and row limit, then requires explicit
 execution. Clear history removes retained source. Server
 restart clears all history; results are not stored. SQL is neither logged nor
 persisted in browser storage or on disk. See

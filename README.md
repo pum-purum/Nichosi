@@ -173,16 +173,14 @@ the result row limit, then select **Execute** or press Ctrl/Cmd+Enter. The serve
 validates and executes the script directly; there is no separate preview step.
 Results include row counts and affected rows; execution duration appears in history.
 
-Atomic mode uses one transaction; MySQL/MariaDB support read queries in this mode.
-On a profile with explicit `readonly:false`, select **Direct** in the execution-mode selector to
-run arbitrary SQL, including MySQL/MariaDB DDL and DML. The console warns that
-previous statements may remain committed if a later statement fails. Read-only
-profiles cannot enable this mode. MySQL `DELIMITER` directives are supported for
-routine definitions.
+The console always requests transactional execution; there is no mode selector.
+SQLite and PostgreSQL support transactional queries and changes. MySQL/MariaDB
+currently support read queries only in this mode. Database DDL may have implicit
+commit semantics; a single statement does not guarantee rollback support.
 
 History retains the latest 100 executions per connection until the server
 restarts. History appears in the left sidebar while the SQL console is open.
-Select an entry to restore its source, row limit and mode, then execute it again
+Select an entry to restore its source and row limit, then execute it again
 explicitly. **Clear history** removes retained SQL. Neither SQL nor results are
 written to browser storage or disk. Unfinished drafts survive workspace navigation
 in memory. Generated row edits still require their ChangeSet SQL preview.
