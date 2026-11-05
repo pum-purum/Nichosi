@@ -75,6 +75,8 @@ h1, h2, p { margin-top: 0; }
 .connection-card { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; width: 100%; min-width: 920px; padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: #191c1f; box-shadow: 0 5px 16px #07090717; text-align: left; cursor: pointer; transition: border-color .16s ease, background .16s ease; }
 .connection-card:hover { border-color: #50575a; background: #202427; }
 .connection-row { min-height: 55px; display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; padding: 0 14px; }
+.connection-row > .connection-size { grid-column: 6; }
+.connection-row > .connection-time { grid-column: 7; }
 .connection-row > .connection-readonly { grid-column: 8; }
 .connection-row > .preview-badge { grid-column: 9; justify-self: start; margin-left: 0; }
 .connection-type, .connection-meta, .connection-readonly { min-width: 0; display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
