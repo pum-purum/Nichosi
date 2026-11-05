@@ -56,14 +56,8 @@
   .definition-code { position: relative; display: flex; overflow: auto; background: #202324; border: 1px solid #414546; border-top: 0; border-radius: 0 0 6px 6px; }
   .definition-lines, pre { margin: 0; padding: 16px; font: 13px/1.7 ui-monospace, monospace; white-space: pre; tab-size: 4; }
   .definition-lines { flex: none; color: #8e9892; text-align: right; border-right: 1px solid #373d39; user-select: none; }
-  pre { padding-right: 52px; flex: 1; min-width: 0; overflow: auto; color: #e5e7e4; }
+  pre { padding-right: 52px; flex: 1; min-width: 0; overflow: auto; color: var(--sql-text); }
   code { font: inherit; }
-  code :global(.hljs-keyword), code :global(.hljs-operator) { color: var(--sql-keyword); }
-  code :global(.hljs-string) { color: var(--sql-string); }
-  code :global(.hljs-number), code :global(.hljs-literal) { color: var(--sql-number); }
-  code :global(.hljs-comment) { color: var(--sql-comment); font-style: italic; }
-  code :global(.hljs-type), code :global(.hljs-built_in) { color: var(--sql-builtin); }
-  code :global(.hljs-variable), code :global(.hljs-symbol) { color: var(--sql-variable); }
   .definition-feedback { margin: 8px 0 0; color: #c6cdc8; font-size: 12px; }
   .copy-status { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .definition-feedback:empty { display: none; }

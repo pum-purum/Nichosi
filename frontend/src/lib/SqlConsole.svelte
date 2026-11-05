@@ -4,8 +4,8 @@
   import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection } from '@codemirror/view';
   import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
   import { sql as sqlLanguage, MySQL, PostgreSQL, SQLite } from '@codemirror/lang-sql';
-  import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language';
   import { Play, Search } from '@lucide/svelte';
+  import { sqlEditorHighlighting } from './sql-editor-highlight';
   import { sqlDraft, saveSqlDraft } from './sql-drafts';
   import { cellValue } from './cell-value';
   import type { ScriptHistory } from './script-history';
@@ -64,12 +64,12 @@
   onMount(() => {
     const draft = sqlDraft(connection.id); source = draft.sql; rowLimit = draft.rowLimit; atomic = draft.atomic;
     editor = new EditorView({ parent: editorHost, state: EditorState.create({ doc: source, extensions: [
-      lineNumbers(), history(), highlightActiveLine(), drawSelection(), syntaxHighlighting(defaultHighlightStyle),
+      lineNumbers(), history(), highlightActiveLine(), drawSelection(), sqlEditorHighlighting,
       sqlLanguage({ dialect: connection.driver === 'mysql' ? MySQL : connection.driver === 'postgres' ? PostgreSQL : SQLite }),
       keymap.of([...defaultKeymap, ...historyKeymap, { key: 'Mod-Enter', run: () => { void prepare(); return true; } }]),
       EditorView.contentAttributes.of({ 'aria-label': 'SQL script', spellcheck: 'false' }),
       EditorView.updateListener.of(update => { if (update.docChanged) { source = update.state.doc.toString(); invalidate(); } }),
-      EditorView.theme({ '&': { height: '100%', backgroundColor: 'var(--bg, #191b1f)', color: '#dce0e5' }, '.cm-scroller': { overflow: 'auto', fontFamily: 'monospace', fontSize: '14px' }, '.cm-content': { minHeight: '180px', caretColor: '#83c96f' }, '.cm-gutters': { backgroundColor: 'transparent', color: '#777f8b', border: 'none' }, '.cm-activeLine': { backgroundColor: '#ffffff05' }, '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': { backgroundColor: '#83c96f35' }, '.cm-cursor': { borderLeftColor: '#83c96f' } }, { dark: true }),
+      EditorView.theme({ '&': { height: '100%', backgroundColor: 'var(--bg, #191b1f)', color: 'var(--sql-text)' }, '.cm-scroller': { overflow: 'auto', fontFamily: 'monospace', fontSize: '14px' }, '.cm-content': { minHeight: '180px', caretColor: '#83c96f' }, '.cm-gutters': { backgroundColor: 'transparent', color: '#777f8b', border: 'none' }, '.cm-activeLine': { backgroundColor: '#ffffff05' }, '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': { backgroundColor: '#83c96f35' }, '.cm-cursor': { borderLeftColor: '#83c96f' } }, { dark: true }),
     ] }) });
     return () => { scriptHistory.setExecuting(false); alive = false; lifecycle.abort(); editor.destroy(); };
   });

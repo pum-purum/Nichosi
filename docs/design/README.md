@@ -25,6 +25,12 @@ Connection cards use locally bundled Simple Icons database logos: the MySQL dolp
 - Use readable system typography. Table content should remain compact enough for scanning while labels and controls stay comfortably legible; avoid tiny metadata text.
 - Preserve visible keyboard focus, sufficient contrast, and clear disabled states. Do not communicate state by color alone.
 
+All SQL surfaces use the Table info palette through the shared `--sql-*` CSS
+variables: blue keywords/operators/NULL, green strings, lilac numbers/booleans,
+gray italic comments, cyan types/built-in functions, yellow variables and neutral
+identifiers. The CodeMirror SQL editor and read-only definitions must use the same bundled
+SQL tokenizer and shared CSS rules instead of separate default highlight themes. Keep quoted identifiers neutral, as in table definitions.
+
 ## Buttons and controls
 
 Use one shared style for actions with the same role across all workspaces. The

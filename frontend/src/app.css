@@ -35,6 +35,7 @@
   --account-badge-text: #b1c9ec;
   --account-badge-bg: #293649;
   --account-badge-border: #45576e;
+  --sql-text: #e5e7e4;
   --sql-keyword: #86afff;
   --sql-string: #9ecb8c;
   --sql-number: #c9a3e8;
@@ -441,3 +442,11 @@ kbd { flex: 0 0 auto; padding: 2px 4px; border: 1px solid #303930; border-radius
 .schema-group { min-width: 0; }
 .schema-group-toggle:disabled { cursor: default; }
 .schema-group-items > .table-nav-item { width: 100%; }
+
+/* All SQL surfaces share token colors, including editable CodeMirror content. */
+:is(.language-sql, .cm-content) .hljs-keyword, :is(.language-sql, .cm-content) .hljs-operator { color: var(--sql-keyword); }
+:is(.language-sql, .cm-content) .hljs-string { color: var(--sql-string); }
+:is(.language-sql, .cm-content) .hljs-number, :is(.language-sql, .cm-content) .hljs-literal { color: var(--sql-number); }
+:is(.language-sql, .cm-content) .hljs-comment { color: var(--sql-comment); font-style: italic; }
+:is(.language-sql, .cm-content) .hljs-type, :is(.language-sql, .cm-content) .hljs-built_in { color: var(--sql-builtin); }
+:is(.language-sql, .cm-content) .hljs-variable, :is(.language-sql, .cm-content) .hljs-symbol { color: var(--sql-variable); }
