@@ -103,6 +103,21 @@ func TestScriptHTTP(t *testing.T) {
 	if err := item.pool.QueryRow("SELECT count(*) FROM entries WHERE id=99").Scan(&n); err != nil || n != 0 {
 		t.Fatalf("rejected script changed data: %d %v", n, err)
 	}
+	for _, tc := range []struct {
+		suffix    string
+		want      int
+		truncated bool
+	}{
+		{"", 200, true},
+		{" LIMIT 50", 50, false},
+		{" LIMIT 500", 500, false},
+		{" LIMIT 1200", 1000, true},
+	} {
+		result = execution(map[string]any{"sql": "WITH RECURSIVE nums(n) AS (VALUES(1) UNION ALL SELECT n+1 FROM nums WHERE n<1200) SELECT n FROM nums" + tc.suffix})
+		if !result.Entry.Success || len(result.Results) != 1 || len(result.Results[0].Rows) != tc.want || result.Results[0].Truncated != tc.truncated {
+			t.Fatalf("SQL limit %q: %+v", tc.suffix, result)
+		}
+	}
 	for _, contentType := range []string{"", "text/plain", "application/x-www-form-urlencoded", "application/json; broken"} {
 		t.Run("reject content type "+contentType, func(t *testing.T) {
 			r := httptest.NewRequest("POST", "/", strings.NewReader(`{"sql":"INSERT INTO entries VALUES(777)","atomic":false}`))

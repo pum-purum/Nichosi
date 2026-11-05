@@ -168,8 +168,7 @@ journal files), then use its container path in the profile.
 
 ## SQL scripts and history
 
-Open SQL console from a connected database's navigation rail. Write SQL, choose
-the result row limit, then select **Execute** or press Ctrl/Cmd+Enter. The server
+Open SQL console from a connected database's navigation rail. Write SQL, then select **Execute** or press Ctrl/Cmd+Enter. The server
 validates and executes the script directly; there is no separate preview step.
 Results include row counts and affected rows; execution duration appears in history.
 
@@ -180,10 +179,14 @@ commit semantics; a single statement does not guarantee rollback support.
 
 History retains the latest 100 executions per connection until the server
 restarts. History appears in the left sidebar while the SQL console is open.
-Select an entry to restore its source and row limit, then execute it again
+Select an entry to restore its source, then execute it again
 explicitly. **Clear history** removes retained SQL. Neither SQL nor results are
 written to browser storage or disk. Unfinished drafts survive workspace navigation
 in memory. Generated row edits still require their ChangeSet SQL preview.
 
 The SQL console accepts one SQL statement at a time. Multiple statements show a
 warning and disable Execute; the server rejects them before executing anything.
+
+SQL results default to at most 200 rows when the outer query has no LIMIT.
+Specify LIMIT in SQL to choose a different count, subject to the safety cap of
+1000 rows and 4 MiB per execution. The console has no row-limit control.

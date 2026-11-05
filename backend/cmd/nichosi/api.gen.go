@@ -348,8 +348,10 @@ type Schema struct {
 // ScriptExecuteInput defines model for ScriptExecuteInput.
 type ScriptExecuteInput struct {
 	// Atomic Use one transaction. Disable only to explicitly permit partial application on writable profiles.
-	Atomic   *bool `json:"atomic,omitempty"`
-	RowLimit *int  `json:"rowLimit,omitempty"`
+	Atomic *bool `json:"atomic,omitempty"`
+
+	// RowLimit Optional API result cap. When omitted, return at most 200 rows unless the statement has a top-level LIMIT, in which case return up to the safety cap of 1000 rows.
+	RowLimit *int `json:"rowLimit,omitempty"`
 
 	// Sql Exactly one SQL statement; multiple statements return HTTP 400. Semicolons inside quoted values, comments and supported routine bodies are not separators.
 	Sql string `json:"sql"`

@@ -145,7 +145,7 @@ free database pages and file-level overhead are not attributed to a table.
 ## SQL console
 
 Open SQL console from the connected workspace navigation rail. Write a script in
-the CodeMirror editor, choose the result row limit, then select Execute or press
+the CodeMirror editor, then select Execute or press
 Ctrl/Cmd+Enter. The server validates and executes the current SQL directly;
 there is no separate preview request or token. Unfinished
 drafts remain in memory while navigating between tables and connections.
@@ -166,8 +166,8 @@ supported. Executable comments/optimizer hints and backslash-escaped literals in
 MySQL/PostgreSQL are rejected; use doubled quotes or dollar quoting.
 
 Results show columns, rows, affected counts and truncation. Duration appears in history. Limits are
-256 KiB of SQL, exactly one statement, 30 seconds, 200 rows per result by default (maximum
-1000), 1000 rows total and 4 MiB of serialized result column/row data. Large queries
+256 KiB of SQL, exactly one statement, 30 seconds, 200 rows per result without an outer LIMIT (up to
+1000 with an explicit outer LIMIT), 1000 rows total and 4 MiB of serialized result column/row data. Large queries
 should include explicit SQL limits. Connection loss during commit is reported as
 an unknown outcome; check database state before repeating.
 SQL errors show the database driver message directly, without generic application
@@ -178,7 +178,7 @@ The SQL console replaces the object tree with script history in the left sidebar
 History lists the most recent 100 executions per connection for this server
 session. Each entry shows SQL, timestamp and duration, with green/red outcome highlighting
 and no status icons; selecting it loads
-the script into the editor. Refresh and Clear history are available in the sidebar. Selecting an entry restores SQL and row limit, then requires explicit
+the script into the editor. Refresh and Clear history are available in the sidebar. Selecting an entry restores SQL, then requires explicit
 execution. Clear history removes retained source. Server
 restart clears all history; results are not stored. SQL is neither logged nor
 persisted in browser storage or on disk. See
@@ -189,3 +189,8 @@ The console accepts exactly one SQL statement per execution. Multiple statements
 show a warning and disable Execute (including its keyboard shortcut); the API
 also rejects them with HTTP 400 before executing anything. Quoted semicolons,
 comments and supported routine bodies do not separate statements.
+
+The SQL console omits the API rowLimit option and has no limit control.
+Only top-level LIMIT tokens count; comments, quoted values and nested query limits
+do not override the default cap. API clients may still supply an explicit rowLimit.
+Result headers use an opaque sticky background so scrolling data remains below them.

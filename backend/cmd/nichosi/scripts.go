@@ -107,6 +107,9 @@ func (a *app) executeScript(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, "unsupported_script", err.Error())
 		return
 	}
+	if input.RowLimit == nil {
+		limit = driver.ScriptResultLimit(statements[0])
+	}
 	state := &item.scripts
 	started := time.Now()
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)

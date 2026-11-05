@@ -359,3 +359,27 @@ func TestScriptErrorMessagePreservesDatabaseError(t *testing.T) {
 		}
 	}
 }
+
+func TestScriptResultLimit(t *testing.T) {
+	for _, tc := range []struct {
+		sql  string
+		want int
+	}{
+		{"SELECT 1", 200},
+		{"SELECT 1 LIMIT 500", 1000},
+		{"SELECT 'LIMIT 500' /* LIMIT 500 */", 200},
+		{"SELECT * FROM (SELECT 1 LIMIT 500) sub", 200},
+		{"WITH sub AS (SELECT 1 LIMIT 500) SELECT * FROM sub", 200},
+		{"WITH sub AS (SELECT 1) SELECT * FROM sub LIMIT 500", 1000},
+	} {
+		t.Run(tc.sql, func(t *testing.T) {
+			statements, err := SplitScript(tc.sql, "sqlite")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := ScriptResultLimit(statements[0]); got != tc.want {
+				t.Fatalf("got %d, want %d", got, tc.want)
+			}
+		})
+	}
+}

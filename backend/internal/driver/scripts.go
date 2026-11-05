@@ -210,6 +210,25 @@ func SplitScript(source, dialect string) ([]ScriptStatement, error) {
 	return result, nil
 }
 
+// ScriptResultLimit uses the default cap unless SQL explicitly limits the outer query.
+// Tokenization excludes comments and quoted values; nested LIMIT clauses do not count.
+func ScriptResultLimit(statement ScriptStatement) int {
+	depth := 0
+	for _, word := range statement.Words {
+		switch word {
+		case "(":
+			depth++
+		case ")":
+			depth--
+		case "LIMIT":
+			if depth == 0 {
+				return 1000
+			}
+		}
+	}
+	return 200
+}
+
 // ValidateScriptMode reserves unrestricted execution for explicitly writable connections.
 func ValidateScriptMode(statements []ScriptStatement, dialect string, readonly, atomic bool) error {
 	if !atomic {
