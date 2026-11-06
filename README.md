@@ -302,3 +302,41 @@ host directories before switching mounts if you want to keep existing observatio
 history, or SQLite data. Place existing SQLite files in `./sqlite` and use their
 `/sqlite/...` paths in connection profiles. Back up `data`, `sqlite`, and
 `connections.json` together, along with any external environment secrets.
+
+## Publish to Docker Hub
+
+The `Publish Docker image` GitHub Actions workflow builds `deploy/Dockerfile`
+and publishes a Linux AMD64 image whenever a Git tag is pushed. The image tag
+matches the Git tag exactly, including a leading `v`; no `latest` alias is added.
+The build uses the source at that tag.
+
+Before the first release:
+
+1. Create a Docker Hub repository, for example `your-account/nichosi`.
+2. In GitHub, open **Settings → Secrets and variables → Actions** and add
+   repository variables `DOCKERHUB_USERNAME` (your Docker Hub login) and
+   `DOCKERHUB_IMAGE` (the full `namespace/repository`, such as `your-account/nichosi`).
+3. Create a Docker Hub access token with write access to that repository and save
+   it as the GitHub Actions repository secret `DOCKERHUB_TOKEN`.
+4. Push the workflow to GitHub before creating a release tag. The tagged commit
+   must contain the workflow.
+
+For example:
+
+```sh
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Follow the run in the repository's **Actions** tab. After it succeeds:
+
+```sh
+docker pull your-account/nichosi:v1.0.0
+```
+
+Tags must also be valid Docker tags: 1–128 ASCII letters, digits, underscores,
+periods, or hyphens, starting with a letter, digit, or underscore. Tags containing
+slashes or `+` fail validation instead of being silently renamed. Existing tags
+are not published retroactively; rerun their workflow if a publication fails.
+To use a published image with the Compose examples above, replace the `build`
+section with `image: your-account/nichosi:v1.0.0` and run `docker compose up -d`.
