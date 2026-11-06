@@ -395,7 +395,7 @@
   "readonly": false,
   "passwordEnv": "NICHOSI_DATABASE_PASSWORD"
 }`}</code></pre>
-    <p>SQLite example: <code>{'{"name":"SQLite demo","driver":"sqlite","database":"/sqlite/demo.sqlite","readonly":false}'}</code>. Host, port and user are not used in saved SQLite profiles.</p>
+    <p>SQLite example: <code>{'{"name":"SQLite database","driver":"sqlite","database":"/sqlite/database.sqlite","readonly":false}'}</code>. Host, port and user are not used in saved SQLite profiles.</p>
   </div>
 {/snippet}
 

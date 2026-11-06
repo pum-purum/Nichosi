@@ -83,8 +83,10 @@ not `MYSQL_*` environment variables.
 | `NICHOSI_ADMIN_TOKEN` | Bearer token for API authentication; at least 24 characters required for non-loopback binding unless local preview is enabled | Unset |
 | `NICHOSI_CONNECTIONS_FILE` | JSON connection profile file loaded at startup | No file loaded |
 | `NICHOSI_METADATA_FILE` | File for cached database sizes and last successful connection times | Persistence disabled |
+| `NICHOSI_HISTORY_DIR` | Directory for retained SQL script history | Persistence disabled |
 | `NICHOSI_LOCAL_PREVIEW` | Set to `true` to allow non-loopback binding without an admin token for local Docker preview | Disabled |
 | `NICHOSI_TEST_DSN` | MySQL DSN used only by optional integration tests | Tests skipped |
+| `NICHOSI_TEST_POSTGRES_DSN` | PostgreSQL DSN used only by optional integration tests | Tests skipped |
 
 The Compose configuration enables local preview, binds the published port to
 `127.0.0.1`, and mounts the connection file. Keep local preview restricted to your
@@ -138,7 +140,7 @@ NULL ordering and text collation. Primary keys break ties when available.
 
 Database sizes and last successful connection times are stored in the host `data/` directory mounted at `/data`. They survive container recreation, `make down`, and `docker compose down -v`. The metadata file contains no passwords or DSNs. Configured connections start disconnected and display their cached observations until the next successful connection. For local runs, set `NICHOSI_METADATA_FILE` to a writable file path and `NICHOSI_HISTORY_DIR` to a writable directory to enable persistence.
 
-## SQLite demo
+## SQLite files
 
 SQLite is an embedded database: Nichosi opens an existing file, with no database
 server, host, port, user, or password. Paths are absolute paths inside the backend
@@ -150,21 +152,25 @@ the grid. The SQL console can execute scripts on writable profiles.
 Add this profile to `connections.json`:
 
 ```json
-{"name":"SQLite demo","driver":"sqlite","database":"/sqlite/demo.sqlite","readonly":false}
+{"name":"SQLite database","driver":"sqlite","database":"/sqlite/database.sqlite","readonly":false}
 ```
 
 The Compose configuration mounts the existing `sqlite-demo` volume at `/sqlite`.
-The local demo was populated once with 80 customers, 500 orders, a view, indexes,
-a foreign key, an audit trigger, a unique-key table and a keyless audit table.
-No seed scripts or initializer containers run at startup. An empty volume must be
-populated separately before connecting; Nichosi never creates a missing database.
+No seed scripts or initializer containers run at startup. Populate the volume with
+your existing database file before connecting; Nichosi never creates a missing
+database. The example connection file includes MySQL and SQLite profiles. Remove profiles
+you do not need; add PostgreSQL profiles explicitly when needed.
 
 Start or rebuild Nichosi with `make re`; stop it with `make down`. The named volume
 preserves the existing database and edits across restarts.
 
-For your own file, mount its directory
-with write permissions for UID 65532 when editing is needed (including SQLite
-journal files), then use its container path in the profile.
+To use a file on your computer, replace `sqlite-demo:/sqlite` in
+`deploy/docker-compose.yml` with `../sqlite:/sqlite`. Create the `sqlite/` directory
+in the repository root and place your existing file there as `database.sqlite`.
+The example profile then opens `/sqlite/database.sqlite` inside the container.
+Give UID 65532 access to the directory and file, including write permissions when
+editing is needed (SQLite also creates journal files). Run `make re` to apply the
+mount change. No separate SQLite server is needed.
 
 ## SQL scripts and history
 

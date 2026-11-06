@@ -80,14 +80,21 @@ it can expose authentication data. Authentication strings are never returned to 
 Without this view the remaining objects still load and the UI displays a warning
 that users and roles are unavailable.
 
-`deploy/mysql-demo-objects.sql` installs examples in the existing `nichosi_lab`
-database. Run it as the local MySQL administrator and discard stdout, as MySQL
-returns the randomly generated password for the locked demo user. Demo accounts
-are restricted to localhost. The daily event is disabled and the global event
-scheduler is not changed. Existing business tables are not modified.
-The optional SQL SECURITY DEFINER metadata view exposes only account name, host,
-lock status and inferred type; it grants no direct access to `mysql.user`.
-The account creating the view must retain permission to read that system table.
+The optional SQL SECURITY DEFINER metadata view must be installed separately by
+an administrator. It exposes only account name, host, lock status and inferred
+type; it grants no direct access to `mysql.user`. The account creating the view
+must retain permission to read that system table. Install this view in the database
+used by the connection and grant the connection user SELECT on the view:
+
+```sql
+CREATE OR REPLACE SQL SECURITY DEFINER VIEW nichosi_account_metadata AS
+SELECT User AS account_name, Host AS account_host, account_locked,
+       CASE WHEN account_locked = 'Y' AND authentication_string = ''
+            THEN 'role' ELSE 'user' END AS account_type
+FROM mysql.user;
+```
+
+Nichosi does not install demo objects or accounts.
 
 For local integration tests, set `NICHOSI_TEST_DSN` through the environment and run
 `go test ./internal/driver` from `backend/`. Tests skip when no local DSN is set.

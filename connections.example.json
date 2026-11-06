@@ -11,19 +11,9 @@
       "readonly": false
     },
     {
-      "name": "Local PostgreSQL",
-      "driver": "postgres",
-      "host": "host.docker.internal",
-      "port": 5432,
-      "user": "database_user",
-      "database": "database_name",
-      "passwordEnv": "NICHOSI_POSTGRES_PASSWORD",
-      "readonly": true
-    },
-    {
-      "name": "SQLite demo",
+      "name": "SQLite database",
       "driver": "sqlite",
-      "database": "/sqlite/demo.sqlite",
+      "database": "/sqlite/database.sqlite",
       "readonly": false
     }
   ]

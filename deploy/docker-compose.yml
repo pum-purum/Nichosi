@@ -6,10 +6,7 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile
     environment:
-      NICHOSI_ADDR: 0.0.0.0:8080
       NICHOSI_LOCAL_PREVIEW: "true"
-      NICHOSI_METADATA_FILE: /data/connection-metadata.json
-      NICHOSI_HISTORY_DIR: /data/script-history
       NICHOSI_CONNECTIONS_FILE: /config/connections.json
     env_file:
       - path: ../.env
@@ -21,7 +18,6 @@ services:
       - ../data:/data
       - ../connections.json:/config/connections.json:ro
     restart: unless-stopped
-
 
 volumes:
   sqlite-demo:
