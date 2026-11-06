@@ -36,74 +36,124 @@ func rowFilters(columns []RowColumn, filters []RowFilter, quote func(string) str
 	if len(filters) == 0 {
 		return "", nil, nil
 	}
-	known := map[string]bool{}
+	builder := newRowFilterBuilder(columns, quote, placeholder)
+	for _, filter := range filters {
+		if err := builder.add(filter); err != nil {
+			return "", nil, err
+		}
+	}
+	return " WHERE " + strings.Join(builder.parts, " "), builder.args, nil
+}
+
+// rowFilterBuilder owns placeholder numbering and bound values for one WHERE clause.
+type rowFilterBuilder struct {
+	known       map[string]bool
+	quote       func(string) string
+	placeholder func(int) string
+	parts       []string
+	args        []any
+}
+
+func newRowFilterBuilder(columns []RowColumn, quote func(string) string, placeholder func(int) string) *rowFilterBuilder {
+	known := make(map[string]bool, len(columns))
 	for _, column := range columns {
 		known[column.Name] = true
 	}
-	parts := []string{}
-	args := []any{}
-	operators := map[string]string{"eq": "=", "ne": "<>", "lt": "<", "lte": "<=", "gt": ">", "gte": ">=", "like": "LIKE"}
-	for i, filter := range filters {
-		if !known[filter.Column] {
-			return "", nil, ErrInvalidFilter
-		}
-		if filter.Connector != "" && filter.Connector != "and" && filter.Connector != "or" {
-			return "", nil, ErrInvalidFilter
-		}
-		if i > 0 {
-			join := "AND"
-			if filter.Connector == "or" {
-				join = "OR"
-			}
-			parts = append(parts, join)
-		}
-		column := quote(filter.Column)
-		var predicate string
-		switch filter.Op {
-		case "isNull", "notNull":
-			if filter.Value != nil {
-				return "", nil, ErrInvalidFilter
-			}
-			predicate = column + " IS NULL"
-			if filter.Op == "notNull" {
-				predicate = column + " IS NOT NULL"
-			}
-		case "in", "between":
-			values, ok := filter.Value.([]any)
-			if !ok || len(values) == 0 || len(values) > 1000 || (filter.Op == "between" && len(values) != 2) {
-				return "", nil, ErrInvalidFilter
-			}
-			placeholders := make([]string, len(values))
-			for j, value := range values {
-				scalar, ok := filterScalar(value)
-				if !ok {
-					return "", nil, ErrInvalidFilter
-				}
-				args = append(args, scalar)
-				placeholders[j] = placeholder(len(args))
-			}
-			predicate = column + " IN (" + strings.Join(placeholders, ",") + ")"
-			if filter.Op == "between" {
-				predicate = column + " BETWEEN " + placeholders[0] + " AND " + placeholders[1]
-			}
-		default:
-			operator, ok := operators[filter.Op]
-			if !ok {
-				return "", nil, ErrInvalidFilter
-			}
-			scalar, ok := filterScalar(filter.Value)
-			if !ok {
-				return "", nil, ErrInvalidFilter
-			}
-			if filter.Op == "like" {
-				if _, ok := scalar.(string); !ok {
-					return "", nil, ErrInvalidFilter
-				}
-			}
-			args = append(args, scalar)
-			predicate = column + " " + operator + " " + placeholder(len(args))
-		}
-		parts = append(parts, "("+predicate+")")
+	return &rowFilterBuilder{known: known, quote: quote, placeholder: placeholder, parts: []string{}, args: []any{}}
+}
+
+func (b *rowFilterBuilder) bind(value any) (string, error) {
+	scalar, ok := filterScalar(value)
+	if !ok {
+		return "", ErrInvalidFilter
 	}
-	return " WHERE " + strings.Join(parts, " "), args, nil
+	b.args = append(b.args, scalar)
+	return b.placeholder(len(b.args)), nil
+}
+
+func (b *rowFilterBuilder) add(filter RowFilter) error {
+	if !b.known[filter.Column] || (filter.Connector != "" && filter.Connector != "and" && filter.Connector != "or") {
+		return ErrInvalidFilter
+	}
+	predicate, err := b.predicate(filter)
+	if err != nil {
+		return err
+	}
+	if len(b.parts) > 0 {
+		join := "AND"
+		if filter.Connector == "or" {
+			join = "OR"
+		}
+		b.parts = append(b.parts, join)
+	}
+	b.parts = append(b.parts, "("+predicate+")")
+	return nil
+}
+
+func (b *rowFilterBuilder) predicate(filter RowFilter) (string, error) {
+	column := b.quote(filter.Column)
+	switch filter.Op {
+	case "isNull", "notNull":
+		if filter.Value != nil {
+			return "", ErrInvalidFilter
+		}
+		if filter.Op == "notNull" {
+			return column + " IS NOT NULL", nil
+		}
+		return column + " IS NULL", nil
+	case "in", "between":
+		values, ok := filter.Value.([]any)
+		if !ok || len(values) == 0 || len(values) > 1000 || (filter.Op == "between" && len(values) != 2) {
+			return "", ErrInvalidFilter
+		}
+		placeholders := make([]string, len(values))
+		for i, value := range values {
+			bound, err := b.bind(value)
+			if err != nil {
+				return "", err
+			}
+			placeholders[i] = bound
+		}
+		if filter.Op == "between" {
+			return column + " BETWEEN " + placeholders[0] + " AND " + placeholders[1], nil
+		}
+		return column + " IN (" + strings.Join(placeholders, ",") + ")", nil
+	default:
+		operator, ok := rowFilterOperator(filter.Op)
+		if !ok {
+			return "", ErrInvalidFilter
+		}
+		if filter.Op == "like" {
+			scalar, _ := filterScalar(filter.Value)
+			if _, ok := scalar.(string); !ok {
+				return "", ErrInvalidFilter
+			}
+		}
+		bound, err := b.bind(filter.Value)
+		if err != nil {
+			return "", err
+		}
+		return column + " " + operator + " " + bound, nil
+	}
+}
+
+func rowFilterOperator(op string) (string, bool) {
+	switch op {
+	case "eq":
+		return "=", true
+	case "ne":
+		return "<>", true
+	case "lt":
+		return "<", true
+	case "lte":
+		return "<=", true
+	case "gt":
+		return ">", true
+	case "gte":
+		return ">=", true
+	case "like":
+		return "LIKE", true
+	default:
+		return "", false
+	}
 }

@@ -9,15 +9,12 @@ import (
 	"io"
 	"io/fs"
 	"log/slog"
-	"net"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/go-sql-driver/mysql"
 	"github.com/pum-purum/nichosi/internal/driver"
 )
 
@@ -559,42 +556,6 @@ func configuredEngine(driver, engine string) (ConnectionEngine, bool) {
 	return ConnectionEngine(engine), valid
 }
 
-func (a *app) openMySQLConnection(ctx context.Context, input ConnectionInput) (*profile, error) {
-	cfg := mysql.NewConfig()
-	cfg.User, cfg.Passwd = input.User, *input.Password
-	cfg.Net, cfg.Addr, cfg.DBName = "tcp", net.JoinHostPort(input.Host, strconv.Itoa(input.Port)), input.Database
-	cfg.Timeout, cfg.ReadTimeout, cfg.WriteTimeout = 5*time.Second, 5*time.Second, 5*time.Second
-	cfg.ParseTime = true
-	pool, err := sql.Open("mysql", cfg.FormatDSN())
-	if err != nil {
-		return nil, fmt.Errorf("configure MySQL connection: %w", err)
-	}
-	pool.SetMaxOpenConns(5)
-	pool.SetMaxIdleConns(2)
-	if err := pool.PingContext(ctx); err != nil {
-		pool.Close()
-		return nil, fmt.Errorf("ping MySQL: %w", err)
-	}
-	var size int64
-	if err := pool.QueryRowContext(ctx, "SELECT COALESCE(SUM(data_length + index_length), 0) FROM information_schema.tables WHERE table_schema = ?", input.Database).Scan(&size); err != nil {
-		pool.Close()
-		return nil, fmt.Errorf("read MySQL database size: %w", err)
-	}
-	now := time.Now().UTC()
-	name := strings.TrimSpace(input.Name)
-	if name == "" {
-		name = input.Database
-	}
-	readonly := connectionReadonly(input.Readonly)
-	input.Readonly = &readonly
-	var engine *ConnectionEngine
-	if product, err := driver.MySQLEngine(ctx, pool); err == nil {
-		value := ConnectionEngine(product)
-		engine = &value
-	}
-	return &profile{Connection: Connection{Id: fmt.Sprintf("conn-%d", now.UnixNano()), Name: name, Driver: ConnectionDriver("mysql"), Engine: engine, Host: input.Host, Port: input.Port, User: input.User, Database: input.Database, Readonly: readonly, Connected: true, DatabaseSizeBytes: &size, LastConnectedAt: &now}, pool: pool, input: input}, nil
-}
-
 func writeJSON(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -608,25 +569,4 @@ func env(key, fallback string) string {
 		return value
 	}
 	return fallback
-}
-func (a *app) openConnection(ctx context.Context, input ConnectionInput) (*profile, error) {
-	if input.Driver == Sqlite {
-		return a.openSQLiteConnection(ctx, input)
-	}
-	if input.Driver != ConnectionInputDriver("postgres") {
-		return a.openMySQLConnection(ctx, input)
-	}
-	pool, size, err := driver.OpenPostgres(ctx, input.Host, input.Port, input.User, *input.Password, input.Database)
-	if err != nil {
-		return nil, err
-	}
-	now := time.Now().UTC()
-	readonly := true
-	input.Readonly = &readonly
-	name := strings.TrimSpace(input.Name)
-	if name == "" {
-		name = input.Database
-	}
-	engine := ConnectionEnginePostgres
-	return &profile{Connection: Connection{Id: fmt.Sprintf("conn-%d", now.UnixNano()), Name: name, Driver: ConnectionDriverPostgres, Engine: &engine, Host: input.Host, Port: input.Port, User: input.User, Database: input.Database, Readonly: true, Connected: true, DatabaseSizeBytes: &size, LastConnectedAt: &now}, pool: pool, input: input}, nil
 }

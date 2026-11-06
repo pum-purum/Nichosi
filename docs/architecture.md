@@ -198,3 +198,17 @@ The SQL console omits the API rowLimit option and has no limit control.
 Only top-level LIMIT tokens count; comments, quoted values and nested query limits
 do not override the default cap. API clients may still supply an explicit rowLimit.
 Result headers use an opaque sticky background so scrolling data remains below them.
+
+## Construction patterns
+
+Connection creation in `cmd/nichosi/connection_factory.go` dispatches to a
+creator for each database. Creators open and inspect the pool, closing it on
+failure; the shared profile factory assembles public metadata and normalized
+reconnect settings. PostgreSQL's current read-only profile policy stays in its
+creator. No global connection singleton is used: each application owns its
+profiles and each profile owns its pool.
+
+Row filters use a request-local builder in `internal/driver/row_filters.go`.
+It validates columns and predicates, quotes identifiers with the selected dialect,
+and owns bound values and placeholder numbering for the entire WHERE clause.
+The existing filter functions remain the entry points for all three dialects.
