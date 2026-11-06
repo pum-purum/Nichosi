@@ -590,7 +590,7 @@
                 {/if}
                 <span class="connection-meta" title={connection.driver === 'sqlite' ? 'Database file' : 'Database'}><Database size={14} /><span>{connection.database}</span></span>
                 <span class="connection-meta connection-size" title="Database size"><HardDrive size={14} /><span>{formatBytes(connection.databaseSizeBytes)}</span></span>
-                <span class="connection-meta connection-time" title={`Last connection · ${browserTimeZoneLabel(connection.lastConnectedAt)}`}><Clock size={14} /><span>{formatDateTime(connection.lastConnectedAt)} <span class="timezone-badge">{browserTimeZoneLabel(connection.lastConnectedAt)}</span></span></span>
+                <span class="connection-meta connection-time" title={connection.lastConnectedAt ? `Last connection · ${browserTimeZoneLabel(connection.lastConnectedAt)}` : 'Last connection'}><Clock size={14} /><span>{formatDateTime(connection.lastConnectedAt)}{#if connection.lastConnectedAt} <span class="timezone-badge">{browserTimeZoneLabel(connection.lastConnectedAt)}</span>{/if}</span></span>
                 {#if connection.readonly}<span class="connection-readonly" title="Read-only connection"><ShieldCheck size={14} /> Read only</span>{/if}
                 <span class:connected={connection.connected} class="preview-badge" title={connection.connected ? 'Connected' : 'Disconnected'}><span></span>{connection.connected ? 'Online' : 'Offline'}</span>
               </div>
