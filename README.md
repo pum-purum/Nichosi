@@ -1,6 +1,64 @@
 # Nichosi
 
-Nichosi is a web app for browsing database tables. It connects to MySQL, MariaDB, PostgreSQL (read-only), and SQLite.
+A database workspace in your browser. Explore tables and views, build precise filters, inspect schema details, and turn SQL into answers — in a dark, IDE-style interface.
+
+Nichosi connects to **MySQL, MariaDB, PostgreSQL, and SQLite**. It runs as a self-hosted web app in Docker, with a Go backend and a Svelte + TypeScript frontend. Connections default to read-only; editing requires an explicit writable profile and driver support.
+
+![SQL console running a PostgreSQL analysis with CTEs, joins and a window function, alongside execution history](docs/screenshots/sql-analysis.jpg)
+
+## Explore, query, revisit
+
+- **Browse your database.** Navigate schema-grouped tables and views, search database objects, and inspect column types and keys beside the data.
+- **Narrow down the rows.** Combine conditions in a visual filter builder or type an expression. Sort on the server and move through pages without losing your applied filters.
+- **Write expressive SQL.** Use joins, CTEs, aggregates, subqueries, and window functions supported by your database. Execute with Ctrl/Cmd+Enter and inspect the result directly below the editor.
+- **Keep the useful work.** Per-connection history records SQL source, execution status, timestamps, and duration. Restore an earlier query and run it again explicitly.
+- **Understand the structure.** Inspect columns, keys, indexes, foreign keys, triggers, and SQL definitions where the driver exposes them.
+- **Review generated edits.** Grid changes go through a ChangeSet SQL preview before transactional application. Views and tables without a usable row key stay read-only.
+
+[Get started](#what-you-need) · [SQL and history](#sql-scripts-and-history) · [Configuration](#backend-configuration) · [Architecture](docs/architecture.md)
+
+## A closer look
+
+These are actual application screenshots at 1920 × 1080, captured against a PostgreSQL demo database. The `culture` dataset connects countries, cities, people, music, playlists, landmarks, and travel diaries through 11 tables and two views. People and activity are fictional; cultural references and numeric values are illustrative. Demo data is not installed automatically when you start Nichosi.
+
+### Start with your connections
+
+The start screen brings your saved database profiles together, with their database engine, connection state, read-only status, cached size, and last successful connection time. Choose a profile to enter its workspace. Nichosi runs locally without a separate application login.
+
+![Nichosi start screen showing saved MySQL, PostgreSQL and SQLite connections](docs/screenshots/connections.jpg)
+
+### Filters that express more than a search box
+
+Find tracks between three and seven minutes, restrict their album position, or include a title match. The builder and expression field show the same filter; this example returns 24 matching tracks.
+
+![Applied song filter combining BETWEEN, AND, OR and LIKE, with matching PostgreSQL rows](docs/screenshots/filters.jpg)
+
+Supported operators include comparisons, `BETWEEN`, `LIKE`, `IN`, `IS NULL`, and `IS NOT NULL`. `AND` takes precedence over `OR`; grouping parentheses are currently unsupported. Use the SQL console for queries that need more elaborate logic.
+
+### Real views, real pagination
+
+Browse a seven-table playlist view with readable song titles, artists, albums, and countries. This capture shows **page two: rows 26–50 of 128**, with 25 rows per page and sorting by curator. Page sizes of 25, 50, and 100 are available; applied sorting and filters persist while paging.
+
+![Playlist view sorted by curator on page two, showing rows 26–50 of 128](docs/screenshots/views-pagination.jpg)
+
+### See how a view is built
+
+Switch from data to **View info** to inspect column metadata and a formatted, copyable SQL definition. The playlist view makes its joins visible without leaving the workspace.
+
+![View metadata and formatted SQL definition joining playlists, people, songs, albums, artists and countries](docs/screenshots/view-definition.jpg)
+
+### Complex SQL with a result you can read
+
+The opening screenshot ranks artists within each country using two CTEs over the seven-table playlist view, distinct listener counts, and `DENSE_RANK()`. Ties remain visible in the result. The console executes **one SQL statement per run**; a statement can contain multiple CTEs and nested queries. Multi-statement batches are currently rejected.
+
+### A history you can return to
+
+Move from a country ranking to album runtimes, travel journals, or playlist diversity. Each execution creates a history entry with its status, timestamp, and duration. Selecting an entry restores its source without executing it; the example below was restored from history and explicitly run again.
+
+![SQL history containing travel and music analyses, with a restored country ranking query and its results](docs/screenshots/script-history.jpg)
+
+History retains the latest 100 executions per connection. The bundled Docker setup persists it in the host `data/` directory; local backend runs need `NICHOSI_HISTORY_DIR` configured. Results are not stored in history.
+
 
 ## What you need
 
