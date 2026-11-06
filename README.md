@@ -15,7 +15,7 @@ Nichosi connects to **MySQL, MariaDB, PostgreSQL, and SQLite**. It runs as a sel
 - **Understand the structure.** Inspect columns, keys, indexes, foreign keys, triggers, and SQL definitions where the driver exposes them.
 - **Review generated edits.** Grid changes go through a ChangeSet SQL preview before transactional application. Views and tables without a usable row key stay read-only.
 
-[Run from Docker Hub](#run-from-docker-hub) · [Build from source](#start-the-app) · [SQL and history](#sql-scripts-and-history) · [Configuration](#backend-configuration) · [Architecture](docs/architecture.md)
+[Run from Docker Hub](#run-from-docker-hub) · [SQL and history](#sql-scripts-and-history) · [Configuration](#backend-configuration) · [Architecture](docs/architecture.md)
 
 ## A closer look
 
@@ -57,7 +57,7 @@ Move from a country ranking to album runtimes, travel journals, or playlist dive
 
 ![SQL history containing travel and music analyses, with a restored country ranking query and its results](docs/screenshots/script-history.jpg)
 
-History retains the latest 100 executions per connection. The bundled Docker setup persists it in the host `data/` directory; local backend runs need `NICHOSI_HISTORY_DIR` configured. Results are not stored in history.
+History retains the latest 100 executions per connection. The Docker Compose setup below persists it in the `nichosi-data` volume. Results are not stored in history.
 
 
 ## Run from Docker Hub
@@ -93,6 +93,7 @@ adjust this example:
 
 MariaDB also uses `"driver": "mysql"`; optionally add `"engine": "mariadb"`.
 For PostgreSQL, use `"driver": "postgres"` and the appropriate port (usually `5432`).
+Add more profiles to the `connections` array as needed.
 Connections default to read-only. Set `"readonly": false` explicitly to request
 editing where the driver supports it.
 
@@ -101,7 +102,7 @@ editing where the driver supports it.
 ```yaml
 services:
   nichosi:
-    # Download the published release instead of building from source.
+    # Download the latest published image from Docker Hub.
     image: pumphonia/nichosi:latest
     restart: unless-stopped
     environment:
@@ -154,78 +155,6 @@ To update to the latest published image, run `docker compose pull` and
 `docker compose down`. The named data volume survives this command;
 `docker compose down -v` deletes it, including stored SQL history and metadata.
 
-## What you need
-
-The following instructions build Nichosi from source. For a published image, use
-[Run from Docker Hub](#run-from-docker-hub).
-
-- Docker with the Docker Compose plugin.
-- A running MySQL or MariaDB server that the Nichosi container can reach.
-- The database name, host, port, user name, and password.
-
-## Start the app
-
-Open a terminal and download the project:
-
-```sh
-git clone https://github.com/pum-purum/Nichosi.git
-cd Nichosi
-```
-
-Run the following commands from the `Nichosi` folder.
-
-1. Create your local connection file:
-
-   ```sh
-   cp connections.example.json connections.json
-   ```
-
-2. Open `connections.json` and replace the example values with your database details. The file contains your password, so keep it private. It is ignored by Git and is not copied into the Docker image.
-
-   MariaDB uses `"driver": "mysql"`. Add `"engine": "mariadb"` to its profile to show the MariaDB logo before connecting. The optional `engine` defaults to the driver; MySQL-compatible servers are identified after connecting. The engine changes only the displayed database product, not the connection protocol.
-
-   ```json
-   {
-     "connections": [
-       {
-         "name": "My database",
-         "driver": "mysql",
-         "host": "host.docker.internal",
-         "port": 3306,
-         "user": "database_user",
-         "database": "database_name",
-         "readonly": false,
-         "password": "your-password"
-       }
-     ]
-   }
-   ```
-
-   `host` must be an address the Docker container can reach. If your database runs in another container, use that container's service name and make sure both containers share a Docker network. If it runs on your computer, `host.docker.internal` usually works with Docker Desktop; on Linux, configure a host address that is reachable from Docker.
-
-   You can add more connection profiles to the `connections` array. Set `"readonly": true`
-   to restrict a connection to read-only operations, or `"readonly": false` to opt out of
-   that restriction. The value must be a JSON boolean, not a string. If omitted, it
-   defaults to `true`. The old `environment` field is no longer used; replace it with
-   an explicit `readonly` value (`true` for former `prod` profiles). The API uses the
-   same `readonly` name in connection inputs and responses.
-
-3. Build and start Nichosi:
-
-   ```sh
-   make re
-   ```
-
-   This builds the app's Docker image and starts the container in the background. The first build can take a few minutes.
-
-4. Open <http://127.0.0.1:8080> in your browser. Choose your connection to see its tables and table data.
-
-If the app started before you finished editing `connections.json`, restart it to reload the file:
-
-```sh
-docker compose -f deploy/docker-compose.yml restart
-```
-
 ## Backend configuration
 
 The backend reads these variables from the process environment; it does not load
@@ -241,8 +170,8 @@ not `MYSQL_*` environment variables.
 
 Nichosi is a local application and does not require an authentication token.
 The Compose configuration binds the published port to `127.0.0.1` and mounts the
-connection file. To run the backend directly with saved profiles, use
-`NICHOSI_CONNECTIONS_FILE="$PWD/connections.json" make run`.
+connection file. Set these variables under `environment` in `compose.yaml` to
+override the container settings.
 
 Use **Refresh** above the data grid to reload the current table or view without
 reloading the browser page. The selected connection, current page, applied filters,
@@ -264,19 +193,11 @@ even on writable connections. The **View info** tab shows properties, column met
 and the formatted `CREATE VIEW` statement with a copy control. Reload the browser page to refresh metadata. Views have
 no separate table storage; table-only indexes, foreign keys and triggers are not shown.
 
-## Stop the app
-
-```sh
-make down
-```
-
-The web app is available only from your own computer by default. Docker mounts `connections.json` as read-only. Do not commit this file or share it: it contains database passwords.
-
 ## Troubleshooting
 
 - **No connections appear:** Check that `connections.json` contains valid details and valid JSON, then restart the app.
 - **The database cannot be reached:** Check the host and port from inside Docker. A database address that works on your computer may not work from a container.
-- **The page does not open:** Check that Docker is running and port `8080` is not already in use. View container logs with `docker compose -f deploy/docker-compose.yml logs`.
+- **The page does not open:** Check that Docker is running and port `8080` is not already in use. View container logs with `docker compose logs nichosi`.
 
 ## Project information
 
@@ -289,7 +210,12 @@ reverse the direction. Sorting returns to page one and persists across paginatio
 and page-size changes; selecting another table or view resets it. MySQL determines
 NULL ordering and text collation. Primary keys break ties when available.
 
-Database sizes and last successful connection times are stored in the host `data/` directory mounted at `/data`. They survive container recreation, `make down`, and `docker compose down -v`. The metadata file contains no passwords or DSNs. Configured connections start disconnected and display their cached observations until the next successful connection. For local runs, set `NICHOSI_METADATA_FILE` to a writable file path and `NICHOSI_HISTORY_DIR` to a writable directory to enable persistence.
+Database sizes and last successful connection times are stored in the
+`nichosi-data` volume mounted at `/data`, alongside SQL history. They survive
+container recreation and `docker compose down`; `docker compose down -v` deletes
+this volume. The metadata file contains no passwords or DSNs. Configured
+connections start disconnected and display their cached observations until the
+next successful connection.
 
 ## SQLite files
 
@@ -306,22 +232,20 @@ Add this profile to `connections.json`:
 {"name":"SQLite database","driver":"sqlite","database":"/sqlite/database.sqlite","readonly":false}
 ```
 
-The Compose configuration mounts the existing `sqlite-demo` volume at `/sqlite`.
-No seed scripts or initializer containers run at startup. Populate the volume with
-your existing database file before connecting; Nichosi never creates a missing
-database. The example connection file includes MySQL and SQLite profiles. Remove profiles
-you do not need; add PostgreSQL profiles explicitly when needed.
+To use a file on your computer, create a `sqlite/` directory alongside
+`compose.yaml` and place your existing database file there as `database.sqlite`.
+Add this mount to the `nichosi` service's `volumes` list in the Compose example:
 
-Start or rebuild Nichosi with `make re`; stop it with `make down`. The named volume
-preserves the existing database and edits across restarts.
+```yaml
+      - ./sqlite:/sqlite
+```
 
-To use a file on your computer, replace `sqlite-demo:/sqlite` in
-`deploy/docker-compose.yml` with `../sqlite:/sqlite`. Create the `sqlite/` directory
-in the repository root and place your existing file there as `database.sqlite`.
-The example profile then opens `/sqlite/database.sqlite` inside the container.
-Give UID 65532 access to the directory and file, including write permissions when
-editing is needed (SQLite also creates journal files). Run `make re` to apply the
-mount change. No separate SQLite server is needed.
+The profile above opens `/sqlite/database.sqlite` inside the container. Give UID
+65532 access to the directory and file, including write permissions when editing
+is needed (SQLite also creates journal files). Run `docker compose up -d` to apply
+the mount change. Nichosi never creates a missing database or installs demo data.
+Back up the SQLite directory and `connections.json` along with the application
+data volume.
 
 ## SQL scripts and history
 
@@ -348,92 +272,3 @@ warning and disable Execute; the server rejects them before executing anything.
 SQL results default to at most 200 rows when the outer query has no LIMIT.
 Specify LIMIT in SQL to choose a different count, subject to the safety cap of
 1000 rows and 4 MiB per execution. The console has no row-limit control.
-
-
-## Store container data on the host
-
-The image declares `/data` as a Docker volume. The bundled Compose file binds the host `data/` directory for connection
-observations and SQL history, and uses the named `sqlite-demo` volume for SQLite
-databases. To let Docker manage application data instead, replace `../data:/data`
-with `nichosi-data:/data` and declare `nichosi-data` under top-level `volumes`. Connection profiles come from the read-only `connections.json`
-bind mount. Unexecuted editor drafts remain in browser memory.
-
-For host storage, save this example as `compose.yaml` in the repository root:
-
-```yaml
-name: nichosi
-services:
-  nichosi:
-    build:
-      context: .
-      dockerfile: deploy/Dockerfile
-    environment:
-      NICHOSI_ADDR: 0.0.0.0:8080
-      NICHOSI_CONNECTIONS_FILE: /config/connections.json
-      NICHOSI_METADATA_FILE: /data/connection-metadata.json
-      NICHOSI_HISTORY_DIR: /data/script-history
-    env_file:
-      - path: .env
-        required: false
-    ports:
-      - "127.0.0.1:8080:8080"
-    volumes:
-      - ./data:/data
-      - ./sqlite:/sqlite
-      - ./connections.json:/config/connections.json:ro
-    restart: unless-stopped
-```
-
-Create the host directories before starting the non-root container:
-
-```sh
-mkdir -p data sqlite
-sudo chown -R 65532:65532 data sqlite
-sudo chmod 700 data sqlite
-test -f connections.json || cp connections.example.json connections.json
-docker compose up -d --build
-```
-
-Existing named-volume contents are not migrated automatically. Copy them into the
-host directories before switching mounts if you want to keep existing observations,
-history, or SQLite data. Place existing SQLite files in `./sqlite` and use their
-`/sqlite/...` paths in connection profiles. Back up `data`, `sqlite`, and
-`connections.json` together, along with any external environment secrets.
-
-## Publish to Docker Hub
-
-The `Publish Docker image` GitHub Actions workflow builds `deploy/Dockerfile`
-and publishes a Linux AMD64 image whenever a Git tag is pushed. The image tag
-matches the Git tag exactly, including a leading `v`; no `latest` alias is added.
-The build uses the source at that tag.
-
-Before the first release:
-
-1. Create a Docker Hub repository, for example `your-account/nichosi`.
-2. In GitHub, open **Settings → Secrets and variables → Actions** and add
-   repository variables `DOCKERHUB_USERNAME` (your Docker Hub login) and
-   `DOCKERHUB_IMAGE` (the full `namespace/repository`, such as `your-account/nichosi`).
-3. Create a Docker Hub access token with write access to that repository and save
-   it as the GitHub Actions repository secret `DOCKERHUB_TOKEN`.
-4. Push the workflow to GitHub before creating a release tag. The tagged commit
-   must contain the workflow.
-
-For example:
-
-```sh
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-Follow the run in the repository's **Actions** tab. After it succeeds:
-
-```sh
-docker pull your-account/nichosi:v1.0.0
-```
-
-Tags must also be valid Docker tags: 1–128 ASCII letters, digits, underscores,
-periods, or hyphens, starting with a letter, digit, or underscore. Tags containing
-slashes or `+` fail validation instead of being silently renamed. Existing tags
-are not published retroactively; rerun their workflow if a publication fails.
-To use a published image with the Compose examples above, replace the `build`
-section with `image: your-account/nichosi:v1.0.0` and run `docker compose up -d`.
