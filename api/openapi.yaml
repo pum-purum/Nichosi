@@ -5,15 +5,13 @@ info:
   description: >
     Contract between the Go backend and the Svelte frontend.
     Change it deliberately and report every change.
+    Nichosi is a local application; its API does not require authentication.
 servers:
   - url: http://127.0.0.1:8080
-security:
-  - AdminToken: []
 paths:
   /api/health:
     get:
       operationId: getHealth
-      security: []
       responses:
         "200":
           description: OK
@@ -23,9 +21,6 @@ paths:
   /api/connections:
     get:
       operationId: listConnections
-      security:
-        - AdminToken: []
-        - {}
       responses:
         "200":
           description: Saved connection profiles
@@ -642,7 +637,3 @@ components:
             properties:
               bucket: { type: string }
               count: { type: integer, format: int64 }
-  securitySchemes:
-    AdminToken:
-      type: http
-      scheme: bearer

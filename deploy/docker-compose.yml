@@ -6,7 +6,6 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile
     environment:
-      NICHOSI_LOCAL_PREVIEW: "true"
       NICHOSI_CONNECTIONS_FILE: /config/connections.json
     env_file:
       - path: ../.env

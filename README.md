@@ -80,17 +80,15 @@ not `MYSQL_*` environment variables.
 | Variable | Purpose | Default |
 | --- | --- | --- |
 | `NICHOSI_ADDR` | HTTP listen address | `127.0.0.1:8080` |
-| `NICHOSI_ADMIN_TOKEN` | Bearer token for API authentication; at least 24 characters required for non-loopback binding unless local preview is enabled | Unset |
 | `NICHOSI_CONNECTIONS_FILE` | JSON connection profile file loaded at startup | No file loaded |
 | `NICHOSI_METADATA_FILE` | File for cached database sizes and last successful connection times | Persistence disabled |
 | `NICHOSI_HISTORY_DIR` | Directory for retained SQL script history | Persistence disabled |
-| `NICHOSI_LOCAL_PREVIEW` | Set to `true` to allow non-loopback binding without an admin token for local Docker preview | Disabled |
 | `NICHOSI_TEST_DSN` | MySQL DSN used only by optional integration tests | Tests skipped |
 | `NICHOSI_TEST_POSTGRES_DSN` | PostgreSQL DSN used only by optional integration tests | Tests skipped |
 
-The Compose configuration enables local preview, binds the published port to
-`127.0.0.1`, and mounts the connection file. Keep local preview restricted to your
-own computer. To run the backend directly with saved profiles, use
+Nichosi is a local application and does not require an authentication token.
+The Compose configuration binds the published port to `127.0.0.1` and mounts the
+connection file. To run the backend directly with saved profiles, use
 `NICHOSI_CONNECTIONS_FILE="$PWD/connections.json" make run`.
 
 Use **Refresh** above the data grid to reload the current table or view without
@@ -218,7 +216,6 @@ services:
       dockerfile: deploy/Dockerfile
     environment:
       NICHOSI_ADDR: 0.0.0.0:8080
-      NICHOSI_LOCAL_PREVIEW: "true"
       NICHOSI_CONNECTIONS_FILE: /config/connections.json
       NICHOSI_METADATA_FILE: /data/connection-metadata.json
       NICHOSI_HISTORY_DIR: /data/script-history

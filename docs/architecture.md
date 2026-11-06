@@ -4,6 +4,10 @@
 1. Docker image (primary): Go binary with the built frontend embedded (`embed`), served over HTTP.
 2. Desktop binary for Ubuntu (later): Wails shell around the same core and frontend.
 
+Nichosi runs locally without application authentication or admin tokens. The backend
+defaults to `127.0.0.1:8080`; Docker listens on `0.0.0.0` inside the container and
+publishes the port only on the host loopback address.
+
 ## Layers
 UI (Svelte) -> JSON API (`api/openapi.yaml`) -> services -> `Driver` interface -> MySQL / Postgres / SQLite.
 Local store (SQLite): connection profiles, query history, manual relations, cached stats.

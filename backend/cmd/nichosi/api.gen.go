@@ -7,10 +7,6 @@ import (
 	"time"
 )
 
-const (
-	AdminTokenScopes = "AdminToken.Scopes"
-)
-
 // Defines values for ChangeOp.
 const (
 	Delete ChangeOp = "delete"

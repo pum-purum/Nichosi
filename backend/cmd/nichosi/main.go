@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/subtle"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -53,25 +52,17 @@ type app struct {
 	metadata    connectionMetadataStore
 	historyDir  string
 	historyMu   sync.Mutex
-	token       string
 	static      http.Handler
 }
 
 func main() {
 	addr := env("NICHOSI_ADDR", "127.0.0.1:8080")
-	token := os.Getenv("NICHOSI_ADMIN_TOKEN")
-	localPreview := os.Getenv("NICHOSI_LOCAL_PREVIEW") == "true"
-	if !isLoopback(addr) && len(token) < 24 && !localPreview {
-		slog.Error("NICHOSI_ADMIN_TOKEN with at least 24 characters is required for non-loopback binding")
-		os.Exit(1)
-	}
-
 	static, err := fs.Sub(webFiles, "static")
 	if err != nil {
 		slog.Error("frontend files unavailable", "error", err)
 		os.Exit(1)
 	}
-	application := &app{token: token, static: http.FileServer(http.FS(static))}
+	application := &app{static: http.FileServer(http.FS(static))}
 	if err := application.metadata.load(os.Getenv("NICHOSI_METADATA_FILE")); err != nil {
 		slog.Warn("could not load connection metadata; starting with empty metadata", "error", err)
 	}
@@ -84,21 +75,21 @@ func main() {
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
-	mux.Handle("GET /api/connections", application.authorize(http.HandlerFunc(application.listConnections)))
-	mux.Handle("POST /api/connections", application.authorize(http.HandlerFunc(application.createConnection)))
-	mux.Handle("POST /api/connections/{connId}/connect", application.authorize(http.HandlerFunc(application.connectConnection)))
-	mux.Handle("POST /api/connections/{connId}/disconnect", application.authorize(http.HandlerFunc(application.disconnectConnection)))
-	mux.Handle("GET /api/connections/{connId}/schema", application.authorize(http.HandlerFunc(application.getSchema)))
-	mux.Handle("GET /api/connections/{connId}/object-definition", application.authorize(http.HandlerFunc(application.getObjectDefinition)))
-	mux.Handle("GET /api/connections/{connId}/tables/{table}/metadata", application.authorize(http.HandlerFunc(application.getTableMetadata)))
-	mux.Handle("POST /api/connections/{connId}/views/{view}/rows", application.authorize(http.HandlerFunc(application.queryViewRows)))
-	mux.Handle("GET /api/connections/{connId}/views/{view}/metadata", application.authorize(http.HandlerFunc(application.getViewMetadata)))
-	mux.Handle("POST /api/connections/{connId}/tables/{table}/rows", application.authorize(http.HandlerFunc(application.queryRows)))
-	mux.Handle("POST /api/connections/{connId}/tables/{table}/changes/preview", application.authorize(http.HandlerFunc(application.previewChanges)))
-	mux.Handle("POST /api/connections/{connId}/tables/{table}/changes/apply", application.authorize(http.HandlerFunc(application.applyChanges)))
-	mux.Handle("POST /api/connections/{connId}/scripts/execute", application.authorize(http.HandlerFunc(application.executeScript)))
-	mux.Handle("GET /api/connections/{connId}/scripts/history", application.authorize(http.HandlerFunc(application.listScriptHistory)))
-	mux.Handle("DELETE /api/connections/{connId}/scripts/history", application.authorize(http.HandlerFunc(application.clearScriptHistory)))
+	mux.HandleFunc("GET /api/connections", application.listConnections)
+	mux.HandleFunc("POST /api/connections", application.createConnection)
+	mux.HandleFunc("POST /api/connections/{connId}/connect", application.connectConnection)
+	mux.HandleFunc("POST /api/connections/{connId}/disconnect", application.disconnectConnection)
+	mux.HandleFunc("GET /api/connections/{connId}/schema", application.getSchema)
+	mux.HandleFunc("GET /api/connections/{connId}/object-definition", application.getObjectDefinition)
+	mux.HandleFunc("GET /api/connections/{connId}/tables/{table}/metadata", application.getTableMetadata)
+	mux.HandleFunc("POST /api/connections/{connId}/views/{view}/rows", application.queryViewRows)
+	mux.HandleFunc("GET /api/connections/{connId}/views/{view}/metadata", application.getViewMetadata)
+	mux.HandleFunc("POST /api/connections/{connId}/tables/{table}/rows", application.queryRows)
+	mux.HandleFunc("POST /api/connections/{connId}/tables/{table}/changes/preview", application.previewChanges)
+	mux.HandleFunc("POST /api/connections/{connId}/tables/{table}/changes/apply", application.applyChanges)
+	mux.HandleFunc("POST /api/connections/{connId}/scripts/execute", application.executeScript)
+	mux.HandleFunc("GET /api/connections/{connId}/scripts/history", application.listScriptHistory)
+	mux.HandleFunc("DELETE /api/connections/{connId}/scripts/history", application.clearScriptHistory)
 	mux.Handle("/", application.static)
 
 	server := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
@@ -107,19 +98,6 @@ func main() {
 		slog.Error("server stopped", "error", err)
 		os.Exit(1)
 	}
-}
-
-func (a *app) authorize(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if a.token != "" {
-			provided := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-			if subtle.ConstantTimeCompare([]byte(provided), []byte(a.token)) != 1 {
-				writeError(w, http.StatusUnauthorized, "unauthorized", "Admin token is required")
-				return
-			}
-		}
-		next.ServeHTTP(w, r)
-	})
 }
 
 func (a *app) listConnections(w http.ResponseWriter, _ *http.Request) {
@@ -631,11 +609,6 @@ func env(key, fallback string) string {
 	}
 	return fallback
 }
-func isLoopback(addr string) bool {
-	host, _, err := net.SplitHostPort(addr)
-	return err == nil && (host == "localhost" || net.ParseIP(host) != nil && net.ParseIP(host).IsLoopback())
-}
-
 func (a *app) openConnection(ctx context.Context, input ConnectionInput) (*profile, error) {
 	if input.Driver == Sqlite {
 		return a.openSQLiteConnection(ctx, input)
