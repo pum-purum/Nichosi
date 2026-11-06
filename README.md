@@ -15,7 +15,7 @@ Nichosi connects to **MySQL, MariaDB, PostgreSQL, and SQLite**. It runs as a sel
 - **Understand the structure.** Inspect columns, keys, indexes, foreign keys, triggers, and SQL definitions where the driver exposes them.
 - **Review generated edits.** Grid changes go through a ChangeSet SQL preview before transactional application. Views and tables without a usable row key stay read-only.
 
-[Get started](#what-you-need) · [SQL and history](#sql-scripts-and-history) · [Configuration](#backend-configuration) · [Architecture](docs/architecture.md)
+[Run from Docker Hub](#run-from-docker-hub) · [Build from source](#start-the-app) · [SQL and history](#sql-scripts-and-history) · [Configuration](#backend-configuration) · [Architecture](docs/architecture.md)
 
 ## A closer look
 
@@ -60,7 +60,104 @@ Move from a country ranking to album runtimes, travel journals, or playlist dive
 History retains the latest 100 executions per connection. The bundled Docker setup persists it in the host `data/` directory; local backend runs need `NICHOSI_HISTORY_DIR` configured. Results are not stored in history.
 
 
+## Run from Docker Hub
+
+Use the published [pumphonia/nichosi image](https://hub.docker.com/r/pumphonia/nichosi)
+without cloning the repository or installing Go and Node.js. You need Docker with
+the Compose plugin and a database reachable from the container. Published images
+currently target `linux/amd64`.
+
+Create a directory for Nichosi and place your existing `connections.json` in it.
+Save the `compose.yaml` below alongside it. No `.env` file is required.
+
+**`connections.json`** contains your connection profiles, including database
+passwords. If you already have this file, keep your profiles. For a new setup,
+adjust this example:
+
+```json
+{
+  "connections": [
+    {
+      "name": "My database",
+      "driver": "mysql",
+      "host": "host.docker.internal",
+      "port": 3306,
+      "user": "database_user",
+      "database": "database_name",
+      "password": "your-database-password",
+      "readonly": true
+    }
+  ]
+}
+```
+
+MariaDB also uses `"driver": "mysql"`; optionally add `"engine": "mariadb"`.
+For PostgreSQL, use `"driver": "postgres"` and the appropriate port (usually `5432`).
+Connections default to read-only. Set `"readonly": false` explicitly to request
+editing where the driver supports it.
+
+**`compose.yaml`** — comments explain the settings:
+
+```yaml
+services:
+  nichosi:
+    # Download the published release instead of building from source.
+    image: pumphonia/nichosi:latest
+    restart: unless-stopped
+    environment:
+      # Listen on the container network; the host port below stays local.
+      NICHOSI_ADDR: 0.0.0.0:8080
+      NICHOSI_CONNECTIONS_FILE: /config/connections.json
+      NICHOSI_METADATA_FILE: /data/connection-metadata.json
+      NICHOSI_HISTORY_DIR: /data/script-history
+    ports:
+      # Nichosi has no application login. Expose it only on localhost.
+      - "127.0.0.1:8080:8080"
+    extra_hosts:
+      # Allow access to a database on the Docker host, including Linux.
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # Create connections.json before starting; the container only reads it.
+      - type: bind
+        source: ./connections.json
+        target: /config/connections.json
+        read_only: true
+        bind:
+          create_host_path: false
+      # Keep SQL history and cached metadata across container recreation.
+      - nichosi-data:/data
+
+volumes:
+  nichosi-data:
+```
+
+Keep `connections.json` private and out of version control: it contains database passwords. For a database in another Compose
+project, attach Nichosi to that database's Docker network and use its service name
+as `host`. Inside the Nichosi container, `localhost` refers to Nichosi itself.
+For SQLite, mount your existing database file separately and use its container
+path as `database`; see [SQLite files](#sqlite-files) for permissions and profiles.
+
+Run these commands from the directory containing `compose.yaml`:
+
+```sh
+docker compose pull
+docker compose up -d
+```
+
+Open [http://127.0.0.1:8080](http://127.0.0.1:8080) and select your connection.
+Use `docker compose logs nichosi` to inspect logs and `docker compose restart nichosi`
+to reload changes to `connections.json`. After changing `compose.yaml`,
+run `docker compose up -d` to recreate the container with the new settings.
+
+To update to the latest published image, run `docker compose pull` and
+`docker compose up -d` again. Stop the app with
+`docker compose down`. The named data volume survives this command;
+`docker compose down -v` deletes it, including stored SQL history and metadata.
+
 ## What you need
+
+The following instructions build Nichosi from source. For a published image, use
+[Run from Docker Hub](#run-from-docker-hub).
 
 - Docker with the Docker Compose plugin.
 - A running MySQL or MariaDB server that the Nichosi container can reach.
