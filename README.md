@@ -15,7 +15,7 @@ Nichosi connects to **MySQL, MariaDB, PostgreSQL, and SQLite**. It runs as a sel
 - **Understand the structure.** Inspect columns, keys, indexes, foreign keys, triggers, and SQL definitions where the driver exposes them.
 - **Review generated edits.** Grid changes go through a ChangeSet SQL preview before transactional application. Views and tables without a usable row key stay read-only.
 
-[Run from Docker Hub](#run-from-docker-hub) · [SQL and history](#sql-scripts-and-history) · [Configuration](#backend-configuration) · [Architecture](docs/architecture.md)
+[Run from Docker Hub](#run-from-docker-hub) · [SQL and history](#sql-scripts-and-history) · [Architecture](docs/architecture.md)
 
 ## A closer look
 
@@ -57,7 +57,7 @@ Move from a country ranking to album runtimes, travel journals, or playlist dive
 
 ![SQL history containing travel and music analyses, with a restored country ranking query and its results](docs/screenshots/script-history.jpg)
 
-History retains the latest 100 executions per connection. The Docker Compose setup below persists it in the `nichosi-data` volume. Results are not stored in history.
+History retains the latest 100 executions per connection. The Docker Compose setup below persists it in the `nichosi-data/` directory. Results are not stored in history.
 
 
 ## Run from Docker Hub
@@ -67,8 +67,25 @@ without cloning the repository or installing Go and Node.js. You need Docker wit
 the Compose plugin and a database reachable from the container. Published images
 currently target `linux/amd64`.
 
-Create a directory for Nichosi and place your existing `connections.json` in it.
-Save the `compose.yaml` below alongside it. No `.env` file is required.
+Create a directory for Nichosi data in your working directory:
+
+```sh
+mkdir -p nichosi-data
+```
+
+Place your existing `connections.json` inside `nichosi-data/`. The same directory
+stores SQL history and cached metadata. On Linux, grant the container user access
+before starting (run after placing the configuration file):
+
+```sh
+sudo chown -R 65532:65532 nichosi-data
+sudo chmod 700 nichosi-data
+sudo chmod 600 nichosi-data/connections.json
+```
+
+Save `compose.yaml` in the working directory, alongside `nichosi-data/`.
+No environment variables or `.env` file are required. The image already listens
+on port `8080` and reads `/data/connections.json`.
 
 **`connections.json`** contains your connection profiles, including database
 passwords. If you already have this file, keep your profiles. For a new setup,
@@ -80,7 +97,7 @@ adjust this example:
     {
       "name": "My database",
       "driver": "mysql",
-      "host": "host.docker.internal",
+      "host": "db.example.com",
       "port": 3306,
       "user": "database_user",
       "database": "database_name",
@@ -105,31 +122,12 @@ services:
     # Download the latest published image from Docker Hub.
     image: pumphonia/nichosi:latest
     restart: unless-stopped
-    environment:
-      # Listen on the container network; the host port below stays local.
-      NICHOSI_ADDR: 0.0.0.0:8080
-      NICHOSI_CONNECTIONS_FILE: /config/connections.json
-      NICHOSI_METADATA_FILE: /data/connection-metadata.json
-      NICHOSI_HISTORY_DIR: /data/script-history
     ports:
       # Nichosi has no application login. Expose it only on localhost.
       - "127.0.0.1:8080:8080"
-    extra_hosts:
-      # Allow access to a database on the Docker host, including Linux.
-      - "host.docker.internal:host-gateway"
     volumes:
-      # Create connections.json before starting; the container only reads it.
-      - type: bind
-        source: ./connections.json
-        target: /config/connections.json
-        read_only: true
-        bind:
-          create_host_path: false
-      # Keep SQL history and cached metadata across container recreation.
-      - nichosi-data:/data
-
-volumes:
-  nichosi-data:
+      # Configuration, SQL history, and metadata in one host directory.
+      - ./nichosi-data:/data
 ```
 
 Keep `connections.json` private and out of version control: it contains database passwords. For a database in another Compose
@@ -137,6 +135,19 @@ project, attach Nichosi to that database's Docker network and use its service na
 as `host`. Inside the Nichosi container, `localhost` refers to Nichosi itself.
 For SQLite, mount your existing database file separately and use its container
 path as `database`; see [SQLite files](#sqlite-files) for permissions and profiles.
+
+For a quick test without Compose, use the same `nichosi-data/` directory:
+
+```sh
+docker run -d --name nichosi --pull always \
+  -p 127.0.0.1:8081:8080 \
+  -v "$PWD/nichosi-data:/data" \
+  pumphonia/nichosi:latest
+```
+
+Open [http://127.0.0.1:8081](http://127.0.0.1:8081). View logs with
+`docker logs nichosi`; stop and remove the test container with `docker rm -f nichosi`
+before switching to Compose. Your data stays in `nichosi-data/`.
 
 Run these commands from the directory containing `compose.yaml`:
 
@@ -152,26 +163,8 @@ run `docker compose up -d` to recreate the container with the new settings.
 
 To update to the latest published image, run `docker compose pull` and
 `docker compose up -d` again. Stop the app with
-`docker compose down`. The named data volume survives this command;
-`docker compose down -v` deletes it, including stored SQL history and metadata.
-
-## Backend configuration
-
-The backend reads these variables from the process environment; it does not load
-`.env` files. Database connection details come from `connections.json` or the API,
-not `MYSQL_*` environment variables.
-
-| Variable | Purpose | Default |
-| --- | --- | --- |
-| `NICHOSI_ADDR` | HTTP listen address | `127.0.0.1:8080` |
-| `NICHOSI_CONNECTIONS_FILE` | JSON connection profile file loaded at startup | No file loaded |
-| `NICHOSI_METADATA_FILE` | File for cached database sizes and last successful connection times | Persistence disabled |
-| `NICHOSI_HISTORY_DIR` | Directory for retained SQL script history | Persistence disabled |
-
-Nichosi is a local application and does not require an authentication token.
-The Compose configuration binds the published port to `127.0.0.1` and mounts the
-connection file. Set these variables under `environment` in `compose.yaml` to
-override the container settings.
+`docker compose down`. The host `nichosi-data/` directory survives container
+removal, including `docker compose down -v`. Back it up together with any SQLite files.
 
 Use **Refresh** above the data grid to reload the current table or view without
 reloading the browser page. The selected connection, current page, applied filters,
@@ -210,12 +203,10 @@ reverse the direction. Sorting returns to page one and persists across paginatio
 and page-size changes; selecting another table or view resets it. MySQL determines
 NULL ordering and text collation. Primary keys break ties when available.
 
-Database sizes and last successful connection times are stored in the
-`nichosi-data` volume mounted at `/data`, alongside SQL history. They survive
-container recreation and `docker compose down`; `docker compose down -v` deletes
-this volume. The metadata file contains no passwords or DSNs. Configured
-connections start disconnected and display their cached observations until the
-next successful connection.
+Database sizes and last successful connection times are stored in
+`nichosi-data/connection-metadata.json`, alongside SQL history. The metadata file
+contains no passwords or DSNs. Configured connections start disconnected and
+display their cached observations until the next successful connection.
 
 ## SQLite files
 
@@ -244,8 +235,7 @@ The profile above opens `/sqlite/database.sqlite` inside the container. Give UID
 65532 access to the directory and file, including write permissions when editing
 is needed (SQLite also creates journal files). Run `docker compose up -d` to apply
 the mount change. Nichosi never creates a missing database or installs demo data.
-Back up the SQLite directory and `connections.json` along with the application
-data volume.
+Back up the SQLite directory together with `nichosi-data/`.
 
 ## SQL scripts and history
 

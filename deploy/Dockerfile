@@ -20,6 +20,7 @@ FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/nichosi /nichosi
 COPY --from=build --chown=65532:65532 /out/data /data
 ENV NICHOSI_ADDR=0.0.0.0:8080
+ENV NICHOSI_CONNECTIONS_FILE=/data/connections.json
 ENV NICHOSI_METADATA_FILE=/data/connection-metadata.json
 ENV NICHOSI_HISTORY_DIR=/data/script-history
 VOLUME ["/data"]
