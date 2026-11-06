@@ -83,8 +83,6 @@ not `MYSQL_*` environment variables.
 | `NICHOSI_CONNECTIONS_FILE` | JSON connection profile file loaded at startup | No file loaded |
 | `NICHOSI_METADATA_FILE` | File for cached database sizes and last successful connection times | Persistence disabled |
 | `NICHOSI_HISTORY_DIR` | Directory for retained SQL script history | Persistence disabled |
-| `NICHOSI_TEST_DSN` | MySQL DSN used only by optional integration tests | Tests skipped |
-| `NICHOSI_TEST_POSTGRES_DSN` | PostgreSQL DSN used only by optional integration tests | Tests skipped |
 
 Nichosi is a local application and does not require an authentication token.
 The Compose configuration binds the published port to `127.0.0.1` and mounts the

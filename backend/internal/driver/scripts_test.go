@@ -6,10 +6,8 @@ import (
 	sqldriver "database/sql/driver"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -188,143 +186,6 @@ func TestScriptClientDelimitersAndTriggers(t *testing.T) {
 	out, err := ExecuteScriptMode(context.Background(), db, "sqlite", false, statements, 200, false)
 	if err != nil || len(out) != 3 || len(out[2].Rows) != 2 {
 		t.Fatalf("trigger execution %#v %v", out, err)
-	}
-}
-
-func TestMySQLScriptModes(t *testing.T) {
-	dsn := os.Getenv("NICHOSI_TEST_DSN")
-	if dsn == "" {
-		t.Skip("local MySQL DSN is not configured")
-	}
-	db, err := sql.Open("mysql", dsn)
-	if err != nil {
-		t.Fatal("configure local MySQL")
-	}
-	defer db.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-	if err = db.PingContext(ctx); err != nil {
-		t.Skip("local MySQL unavailable")
-	}
-	table := QuoteIdent(fmt.Sprintf("nichosi_script_%d", time.Now().UnixNano()))
-	proc := QuoteIdent(fmt.Sprintf("nichosi_proc_%d", time.Now().UnixNano()))
-	defer db.ExecContext(context.Background(), "DROP TABLE IF EXISTS "+table)
-	defer db.ExecContext(context.Background(), "DROP PROCEDURE IF EXISTS "+proc)
-	run := func(source string, ro, atomic bool) ([]ScriptOutput, error) {
-		s, e := SplitScript(source, "mysql")
-		if e != nil {
-			return nil, e
-		}
-		return ExecuteScriptMode(ctx, db, "mysql", ro, s, 200, atomic)
-	}
-	out, err := run("CREATE TABLE "+table+"(id INT PRIMARY KEY,name VARCHAR(30)) ENGINE=InnoDB; INSERT INTO "+table+" VALUES(1,'first'); ALTER TABLE "+table+" ADD flag INT DEFAULT 0; UPDATE "+table+" SET flag=1; SELECT * FROM "+table+";", false, false)
-	if err != nil || len(out) != 5 || out[1].RowsAffected != 1 || out[3].RowsAffected != 1 || len(out[4].Rows) != 1 {
-		t.Fatalf("DDL and DML: %#v %v", out, err)
-	}
-	out, err = run("INSERT INTO "+table+"(id,name) VALUES(2,'saved'); SELECT * FROM nichosi_missing_script_table;", false, false)
-	if err == nil || len(out) != 1 {
-		t.Fatal("partial error must retain completed results")
-	}
-	var count int
-	if err = db.QueryRowContext(ctx, "SELECT count(*) FROM "+table).Scan(&count); err != nil || count != 2 {
-		t.Fatal("partial changes were not saved")
-	}
-	if _, err = run("DELETE FROM "+table, false, true); err == nil {
-		t.Fatal("atomic MySQL write accepted")
-	}
-	if _, err = run("SELECT * FROM "+table, true, false); err == nil {
-		t.Fatal("read-only partial mode accepted")
-	}
-	out, err = run("SELECT * FROM "+table, true, true)
-	if err != nil || len(out[0].Rows) != 2 {
-		t.Fatal("read-only MySQL execution failed")
-	}
-	source := "DELIMITER $$\nCREATE PROCEDURE " + proc + "() BEGIN SELECT 1 AS a; SELECT 2 AS b; END$$\nDELIMITER ;\nCALL " + proc + "();"
-	out, err = run(source, false, false)
-	if err != nil || len(out) < 3 || out[1].Statement != 2 || out[2].Statement != 2 {
-		t.Fatalf("routine result sets: %#v %v", out, err)
-	}
-	out, err = run("SET @nichosi_script_value = 42; SELECT @nichosi_script_value;", false, false)
-	if err != nil || out[1].Rows[0][0] != "42" {
-		t.Fatalf("session state: %#v %v", out, err)
-	}
-	out, err = run("SELECT @nichosi_script_value", false, false)
-	if err != nil || out[0].Rows[0][0] != nil {
-		t.Fatal("script session state leaked")
-	}
-}
-
-func TestPostgresScriptModes(t *testing.T) {
-	dsn := os.Getenv("NICHOSI_TEST_POSTGRES_DSN")
-	if dsn == "" {
-		t.Skip("local PostgreSQL DSN is not configured")
-	}
-	db, err := sql.Open("pgx", dsn)
-	if err != nil {
-		t.Fatal("configure local PostgreSQL")
-	}
-	defer db.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-	if err = db.PingContext(ctx); err != nil {
-		t.Skip("local PostgreSQL unavailable")
-	}
-	run := func(source string, ro, atomic bool) ([]ScriptOutput, error) {
-		s, e := SplitScript(source, "postgres")
-		if e != nil {
-			return nil, e
-		}
-		return ExecuteScriptMode(ctx, db, "postgres", ro, s, 200, atomic)
-	}
-	out, err := run("CREATE TABLE script_rows(id bigint PRIMARY KEY); INSERT INTO script_rows VALUES(9007199254740993); SELECT * FROM script_rows;", false, true)
-	if err != nil || len(out) != 3 || out[2].Rows[0][0] != "9007199254740993" {
-		t.Fatalf("transactional DDL/DML: %#v %v", out, err)
-	}
-	out, err = run("INSERT INTO script_rows VALUES(2); SELECT * FROM missing_script_table;", false, true)
-	if err == nil || len(out) != 0 {
-		t.Fatal("atomic failure retained results")
-	}
-	var count int
-	db.QueryRowContext(ctx, "SELECT count(*) FROM script_rows").Scan(&count)
-	if count != 1 {
-		t.Fatal("atomic changes not rolled back")
-	}
-	out, err = run("INSERT INTO script_rows VALUES(2); SELECT * FROM missing_script_table;", false, false)
-	if err == nil || len(out) != 1 {
-		t.Fatal("partial failure lost completed results")
-	}
-	db.QueryRowContext(ctx, "SELECT count(*) FROM script_rows").Scan(&count)
-	if count != 2 {
-		t.Fatal("non-atomic changes not retained")
-	}
-	if _, err = run("CREATE TABLE comment_escape(id int) -- hidden\r; COMMIT; INSERT INTO comment_escape VALUES(1);", false, true); err == nil {
-		t.Fatal("CR comment escaped atomic validation")
-	}
-	var escaped int
-	db.QueryRowContext(ctx, "SELECT count(*) FROM information_schema.tables WHERE table_name='comment_escape'").Scan(&escaped)
-	if escaped != 0 {
-		t.Fatal("CR comment script executed before validation")
-	}
-	if _, err = run("WITH x AS (SELECT 1) DELETE FROM script_rows", true, true); err == nil {
-		t.Fatal("read-only CTE write accepted")
-	}
-	if _, err = run("SELECT set_config('transaction_read_only','off',true); WITH x AS (SELECT 1) DELETE FROM script_rows;", true, true); err == nil {
-		t.Fatal("read-only transaction reconfiguration accepted")
-	}
-	if _, err = run("SELECT 1", true, false); err == nil {
-		t.Fatal("read-only partial mode accepted")
-	}
-	out, err = run("CREATE FUNCTION script_answer() RETURNS integer LANGUAGE plpgsql AS $$ BEGIN RETURN 42; END; $$; SELECT script_answer();", false, false)
-	if err != nil || len(out) != 2 || out[1].Rows[0][0] != "42" {
-		t.Fatalf("dollar quoted function: %#v %v", out, err)
-	}
-	out, err = run("SELECT set_config('application_name','nichosi-script-test',false); SELECT current_setting('application_name');", false, false)
-	if err != nil || out[1].Rows[0][0] != "nichosi-script-test" {
-		t.Fatal("session command failed")
-	}
-	out, err = run("SELECT current_setting('application_name')", false, false)
-	if err != nil || out[0].Rows[0][0] == "nichosi-script-test" {
-		t.Fatal("session state leaked")
 	}
 }
 

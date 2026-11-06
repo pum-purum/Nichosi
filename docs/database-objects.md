@@ -96,9 +96,6 @@ FROM mysql.user;
 
 Nichosi does not install demo objects or accounts.
 
-For local integration tests, set `NICHOSI_TEST_DSN` through the environment and run
-`go test ./internal/driver` from `backend/`. Tests skip when no local DSN is set.
-
 The table view omits the unfinished row-filter and column-visibility controls,
 read-only banner and toolbar divider. Edit and Delete row buttons are disabled
 when the connection readonly flag is true or the RowsPage editable flag is false. Their
