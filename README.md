@@ -140,12 +140,12 @@ For a quick test without Compose, use the same `nichosi-data/` directory:
 
 ```sh
 docker run -d --name nichosi --pull always \
-  -p 127.0.0.1:8081:8080 \
+  -p 127.0.0.1:8080:8080 \
   -v "$PWD/nichosi-data:/data" \
   pumphonia/nichosi:latest
 ```
 
-Open [http://127.0.0.1:8081](http://127.0.0.1:8081). View logs with
+Open [http://127.0.0.1:8080](http://127.0.0.1:8080). View logs with
 `docker logs nichosi`; stop and remove the test container with `docker rm -f nichosi`
 before switching to Compose. Your data stays in `nichosi-data/`.
 
