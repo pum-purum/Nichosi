@@ -8,6 +8,8 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/go-sql-driver/mysql"
 )
 
 type definitionConnector struct {
@@ -141,5 +143,24 @@ func TestMySQLAccountMetadataErrorIsPreserved(t *testing.T) {
 	}
 	if len(warnings) != 1 || warnings[0] != source.Error() {
 		t.Fatalf("warning does not preserve the database error: %v", warnings)
+	}
+}
+
+func TestMySQLAccountMetadataViewIsOptional(t *testing.T) {
+	connector := &definitionConnector{
+		err:          &mysql.MySQLError{Number: 1146, Message: "Table 'demo.nichosi_account_metadata' doesn't exist"},
+		metadataOnly: true,
+	}
+	db := sql.OpenDB(connector)
+	defer db.Close()
+	objects, warnings, err := MySQLObjects(context.Background(), db, "demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if objects == nil || len(warnings) != 1 {
+		t.Fatalf("expected an available catalog and one availability warning: objects=%v warnings=%v", objects, warnings)
+	}
+	if !strings.Contains(warnings[0], "optional nichosi_account_metadata view is not installed") || strings.Contains(warnings[0], "1146") {
+		t.Fatalf("expected an actionable warning instead of a raw table error: %v", warnings)
 	}
 }

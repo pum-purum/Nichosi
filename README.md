@@ -190,6 +190,7 @@ no separate table storage; table-only indexes, foreign keys and triggers are not
 
 - **No connections appear:** Check that `connections.json` contains valid details and valid JSON, then restart the app.
 - **The database cannot be reached:** Check the host and port from inside Docker. A database address that works on your computer may not work from a container.
+- **Users and roles are unavailable:** MySQL account lists require the optional administrator-installed `nichosi_account_metadata` view. Its absence does not affect other database objects. See [account metadata setup](docs/database-objects.md).
 - **The page does not open:** Check that Docker is running and port `8080` is not already in use. View container logs with `docker compose logs nichosi`.
 
 ## Project information

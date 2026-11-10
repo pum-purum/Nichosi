@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/go-sql-driver/mysql"
 )
 
 // Object contains safe metadata only; account authentication data is never returned.
@@ -35,7 +37,12 @@ func MySQLObjects(ctx context.Context, db *sql.DB, database string) ([]Object, [
 	for _, q := range queries {
 		rows, err := db.QueryContext(ctx, q.query, q.args...)
 		if err != nil && q.kind == "account" {
-			warnings = append(warnings, err.Error())
+			var server *mysql.MySQLError
+			if errors.As(err, &server) && server.Number == 1146 {
+				warnings = append(warnings, "Users and roles are unavailable because the optional nichosi_account_metadata view is not installed. Other database objects are unaffected.")
+			} else {
+				warnings = append(warnings, err.Error())
+			}
 			continue
 		}
 		if err != nil {
