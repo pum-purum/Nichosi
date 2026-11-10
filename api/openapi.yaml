@@ -361,8 +361,9 @@ components:
       required: [id, name, driver, host, port, user, database, readonly, connected, databaseSizeBytes, lastConnectedAt]
       properties:
         id: { type: string }
+        configurationErrors: { type: array, items: { type: string }, description: "Configuration problems safe to display; connections with errors cannot be opened." }
         name: { type: string }
-        driver: { type: string, enum: [mysql, postgres, sqlite] }
+        driver: { type: string, enum: [mysql, postgres, sqlite, unknown], description: "Unknown indicates a missing or unsupported configured driver." }
         engine: { type: string, enum: [mysql, mariadb, postgres, sqlite], description: "Database product for display; defaults to driver until identified. MySQL-compatible servers are identified after connecting; configured profiles may specify engine for offline display." }
         host: { type: string }
         port: { type: integer }

@@ -336,9 +336,14 @@ export interface components {
         };
         Connection: {
             id: string;
+            /** @description Configuration problems safe to display; connections with errors cannot be opened. */
+            configurationErrors?: string[];
             name: string;
-            /** @enum {string} */
-            driver: "mysql" | "postgres" | "sqlite";
+            /**
+             * @description Unknown indicates a missing or unsupported configured driver.
+             * @enum {string}
+             */
+            driver: "mysql" | "postgres" | "sqlite" | "unknown";
             /**
              * @description Database product for display; defaults to driver until identified. MySQL-compatible servers are identified after connecting; configured profiles may specify engine for offline display.
              * @enum {string}

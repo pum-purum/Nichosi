@@ -189,7 +189,8 @@ no separate table storage; table-only indexes, foreign keys and triggers are not
 
 ## Troubleshooting
 
-- **No connections appear:** Check that `config.json` contains valid details and valid JSON, then restart the app.
+- **Invalid connections:** Profiles with missing fields, unsupported drivers, incompatible engines, unset password environment variables, or incorrect field types remain in the connection list with configuration errors. Fix `data/config.json` and restart the app to enable them. Unnamed profiles use their position (`Connection #1`, etc.). SQLite does not require a password.
+- **No connections appear:** Check that `config.json` contains valid JSON with a `connections` array, then restart the app.
 - **The database cannot be reached:** Check the host and port from inside Docker. A database address that works on your computer may not work from a container.
 - **Users and roles are unavailable:** MySQL account lists require the optional administrator-installed `nichosi_account_metadata` view. Its absence does not affect other database objects. See [account metadata setup](docs/database-objects.md).
 - **The page does not open:** Check that Docker is running and port `8080` is not already in use. View container logs with `docker compose logs nichosi`.

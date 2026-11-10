@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Database } from '@lucide/svelte';
   import type { components } from './api/schema';
 
   type Connection = components['schemas']['Connection'];
@@ -11,12 +12,14 @@
     sqlite: { label: 'SQLite', color: '#8fd5ed' },
   };
   const product = $derived(engine ?? driver);
-  const appearance = $derived(drivers[product]);
+  const appearance = $derived(product === 'unknown' ? null : drivers[product]);
 </script>
 
+{#if appearance}
 <span role="img" aria-label={appearance.label} title={appearance.label}
   style:background-color={appearance.color}
   style:mask-image={`url('/database-logos/${product}.svg')`}></span>
+{:else}<Database size={26} aria-label="Unknown database driver" />{/if}
 
 <style>
   span {

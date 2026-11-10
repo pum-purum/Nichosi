@@ -19,6 +19,7 @@ const (
 	ConnectionDriverMysql    ConnectionDriver = "mysql"
 	ConnectionDriverPostgres ConnectionDriver = "postgres"
 	ConnectionDriverSqlite   ConnectionDriver = "sqlite"
+	ConnectionDriverUnknown  ConnectionDriver = "unknown"
 )
 
 // Defines values for ConnectionEngine.
@@ -167,13 +168,18 @@ type ColumnProfile struct {
 
 // Connection defines model for Connection.
 type Connection struct {
+	// ConfigurationErrors Configuration problems safe to display; connections with errors cannot be opened.
+	ConfigurationErrors *[]string `json:"configurationErrors,omitempty"`
+
 	// Connected Whether the application currently holds an open database connection
 	Connected bool   `json:"connected"`
 	Database  string `json:"database"`
 
 	// DatabaseSizeBytes Database size in bytes; null when unavailable
-	DatabaseSizeBytes *int64           `json:"databaseSizeBytes"`
-	Driver            ConnectionDriver `json:"driver"`
+	DatabaseSizeBytes *int64 `json:"databaseSizeBytes"`
+
+	// Driver Unknown indicates a missing or unsupported configured driver.
+	Driver ConnectionDriver `json:"driver"`
 
 	// Engine Database product for display; defaults to driver until identified. MySQL-compatible servers are identified after connecting; configured profiles may specify engine for offline display.
 	Engine          *ConnectionEngine `json:"engine,omitempty"`
@@ -188,7 +194,7 @@ type Connection struct {
 	User     string `json:"user"`
 }
 
-// ConnectionDriver defines model for Connection.Driver.
+// ConnectionDriver Unknown indicates a missing or unsupported configured driver.
 type ConnectionDriver string
 
 // ConnectionEngine Database product for display; defaults to driver until identified. MySQL-compatible servers are identified after connecting; configured profiles may specify engine for offline display.

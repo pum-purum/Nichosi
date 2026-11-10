@@ -581,7 +581,7 @@
         <div class="page-heading"><h1 id="connections-title">Connections</h1></div>
         <div class="connection-list">
           {#each connections as connection (connection.id)}
-            <button class="connection-card" onclick={() => void openDatabase(connection)} aria-label={`Open ${connection.name}`}>
+            <button class="connection-card" disabled={!!connection.configurationErrors?.length} onclick={() => void openDatabase(connection)} aria-label={connection.configurationErrors?.length ? `Invalid configuration for ${connection.name}: ${connection.configurationErrors.join("; ")}. Fix data/config.json and restart.` : `Open ${connection.name}`}>
               <div class="connection-row">
                 <span class="connection-type"><ConnectionIcon driver={connection.driver} engine={connection.engine} /></span>
                 <span class="connection-name" title={connection.name}>{connection.name}</span>
@@ -594,6 +594,9 @@
                 {#if connection.readonly}<span class="connection-readonly" title="Read-only connection"><ShieldCheck size={14} /> Read only</span>{/if}
                 <span class:connected={connection.connected} class="preview-badge" role="img" aria-label={connection.connected ? 'Connected' : 'Not connected'} title={connection.connected ? 'Connected' : 'Not connected'}>{#if connection.connected}<Plug size={16} aria-hidden="true" />{:else}<Unplug size={16} aria-hidden="true" />{/if}</span>
               </div>
+              {#if connection.configurationErrors?.length}
+                <div class="connection-config-errors"><strong>Invalid configuration · fix data/config.json and restart</strong><ul>{#each connection.configurationErrors as problem}<li>{problem}</li>{/each}</ul></div>
+              {/if}
             </button>
           {/each}
         </div>

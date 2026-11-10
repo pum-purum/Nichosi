@@ -27,7 +27,7 @@ type profile struct {
 }
 
 type connectionsConfig struct {
-	Connections []connectionConfig `json:"connections"`
+	Connections []json.RawMessage `json:"connections"`
 }
 
 type connectionConfig struct {
@@ -153,6 +153,10 @@ func (a *app) connectConnection(w http.ResponseWriter, r *http.Request) {
 	}
 	item.mu.Lock()
 	defer item.mu.Unlock()
+	if item.ConfigurationErrors != nil && len(*item.ConfigurationErrors) > 0 {
+		writeError(w, http.StatusBadRequest, "invalid_configuration", strings.Join(*item.ConfigurationErrors, "; "))
+		return
+	}
 	if item.pool == nil {
 		ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
 		defer cancel()
@@ -503,44 +507,33 @@ func (a *app) loadConfiguredConnections() {
 		slog.Warn("could not parse connections config", "path", configPath)
 		return
 	}
-	for _, saved := range config.Connections {
-		if saved.PasswordEnv != "" {
-			saved.Password = os.Getenv(saved.PasswordEnv)
-		}
-		if saved.Name == "" || !validConnectionInput(ConnectionInput{Driver: ConnectionInputDriver(saved.Driver), Host: saved.Host, Port: saved.Port, User: saved.User, Password: &saved.Password, Database: saved.Database}) {
-			slog.Warn("skipping invalid connection profile", "name", saved.Name)
-			continue
-		}
+	for index, raw := range config.Connections {
+		saved, problems := decodeConfiguredConnection(raw)
 		engine, valid := configuredEngine(saved.Driver, saved.Engine)
-		if !valid {
-			slog.Warn("skipping incompatible database engine", "name", saved.Name)
-			continue
+		if !valid && (saved.Driver == "mysql" || saved.Driver == "postgres" || saved.Driver == "sqlite") {
+			problems = append(problems, "engine: must be compatible with driver")
 		}
 		readonly := saved.Driver == "postgres" || connectionReadonly(saved.Readonly)
-		input := ConnectionInput{
-			Name: saved.Name, Driver: ConnectionInputDriver(saved.Driver), Host: saved.Host,
-			Port: saved.Port, User: saved.User, Password: &saved.Password,
-			Database: saved.Database, Readonly: &readonly,
-		}
+		input := ConnectionInput{Name: saved.Name, Driver: ConnectionInputDriver(saved.Driver), Host: saved.Host,
+			Port: saved.Port, User: saved.User, Password: &saved.Password, Database: saved.Database, Readonly: &readonly}
 		name := strings.TrimSpace(saved.Name)
 		if name == "" {
-			name = saved.Database
+			name = fmt.Sprintf("Connection #%d", index+1)
 		}
-		a.connections = append(a.connections, &profile{
-			Connection: Connection{
-				Id:        fmt.Sprintf("conn-%d", time.Now().UTC().UnixNano()),
-				Name:      name,
-				Driver:    ConnectionDriver(saved.Driver),
-				Engine:    &engine,
-				Host:      saved.Host,
-				Port:      saved.Port,
-				User:      saved.User,
-				Database:  saved.Database,
-				Readonly:  readonly,
-				Connected: false,
-			},
-			input: input,
-		})
+		kind := ConnectionDriver(saved.Driver)
+		if kind != ConnectionDriverMysql && kind != ConnectionDriverPostgres && kind != ConnectionDriverSqlite {
+			kind = ConnectionDriverUnknown
+		}
+		item := &profile{Connection: Connection{Id: fmt.Sprintf("conn-%d", time.Now().UTC().UnixNano()),
+			Name: name, Driver: kind, Host: saved.Host, Port: saved.Port, User: saved.User,
+			Database: saved.Database, Readonly: readonly, Connected: false}, input: input}
+		if valid {
+			item.Engine = &engine
+		}
+		if len(problems) > 0 {
+			item.ConfigurationErrors = &problems
+		}
+		a.connections = append(a.connections, item)
 	}
 }
 

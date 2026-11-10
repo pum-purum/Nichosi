@@ -33,8 +33,8 @@ func TestLoadConfiguredConnectionsReadonly(t *testing.T) {
 			application := &app{}
 			application.loadConfiguredConnections()
 			if tc.invalid {
-				if len(application.connections) != 0 {
-					t.Fatal("invalid boolean config must not load profiles")
+				if len(application.connections) != 1 || application.connections[0].ConfigurationErrors == nil {
+					t.Fatal("invalid boolean config must remain visible with errors")
 				}
 				return
 			}
@@ -116,7 +116,9 @@ func TestLoadConfiguredConnectionEngine(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			file := filepath.Join(t.TempDir(), "config.json")
-			config := connectionsConfig{Connections: []connectionConfig{{
+			config := struct {
+				Connections []connectionConfig `json:"connections"`
+			}{Connections: []connectionConfig{{
 				Name: "Local", Driver: tc.driver, Engine: tc.engine, Host: "localhost", Port: 3306,
 				User: "tester", Database: "lab", Password: "test-password",
 			}}}
@@ -131,8 +133,8 @@ func TestLoadConfiguredConnectionEngine(t *testing.T) {
 			application := &app{}
 			application.loadConfiguredConnections()
 			if tc.want == "" {
-				if len(application.connections) != 0 {
-					t.Fatal("incompatible engine must not load")
+				if len(application.connections) != 1 || application.connections[0].ConfigurationErrors == nil {
+					t.Fatal("incompatible engine must remain visible with errors")
 				}
 				return
 			}
@@ -149,5 +151,45 @@ func TestLoadConfiguredConnectionEngine(t *testing.T) {
 				t.Fatal("engine display must not require opening a connection")
 			}
 		})
+	}
+}
+
+func TestInvalidConfiguredConnectionsRemainVisible(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "config.json")
+	data := `{"connections":[{}, {"name":"Bad types","driver":"mysql","port":"secret-port","readonly":"false","password":{"secret":"hidden"}}, {"name":"Valid SQLite","driver":"sqlite","database":"/tmp/example.sqlite"}, null]}`
+	if err := os.WriteFile(file, []byte(data), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("NICHOSI_CONNECTIONS_FILE", file)
+	a := &app{}
+	a.loadConfiguredConnections()
+	if len(a.connections) != 4 {
+		t.Fatalf("loaded %d profiles", len(a.connections))
+	}
+	for _, index := range []int{0, 1, 3} {
+		item := a.connections[index]
+		if item.ConfigurationErrors == nil || len(*item.ConfigurationErrors) == 0 {
+			t.Fatalf("profile %d has no errors", index)
+		}
+		req := httptest.NewRequest("POST", "/api/connections/invalid/connect", nil)
+		req.SetPathValue("connId", item.Id)
+		response := httptest.NewRecorder()
+		a.connectConnection(response, req)
+		if response.Code != 400 {
+			t.Fatalf("connect status: %d", response.Code)
+		}
+	}
+	if a.connections[0].Name != "Connection #1" || a.connections[0].Driver != ConnectionDriverUnknown {
+		t.Fatal("missing safe fallback metadata")
+	}
+	if a.connections[2].ConfigurationErrors != nil {
+		t.Fatal("valid neighbor must remain usable")
+	}
+	response := httptest.NewRecorder()
+	a.listConnections(response, httptest.NewRequest("GET", "/api/connections", nil))
+	for _, secret := range []string{"secret-port", "hidden"} {
+		if strings.Contains(response.Body.String(), secret) {
+			t.Fatal("configuration value leaked")
+		}
 	}
 }
