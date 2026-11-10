@@ -1,3 +1,4 @@
+import { databaseFetch } from './connection-status';
 import { get, writable } from 'svelte/store';
 import type { components } from './api/schema';
 
@@ -13,7 +14,7 @@ export function createScriptHistory(connectionId: string) {
     const controller = new AbortController(); pending = controller;
     state.update(value => ({ ...value, loading: true, error: '' }));
     try {
-      const response = await fetch(url, { method: clear ? 'DELETE' : 'GET', signal: controller.signal });
+      const response = await databaseFetch(url, { method: clear ? 'DELETE' : 'GET', signal: controller.signal });
       if (!response.ok) { const body = await response.json().catch(() => null); throw new Error(body?.message ?? `Request failed (${response.status})`); }
       const entries: Entry[] = clear ? [] : await response.json();
       if (current === revision) state.update(value => ({ ...value, entries, selectedId: clear ? '' : value.selectedId }));

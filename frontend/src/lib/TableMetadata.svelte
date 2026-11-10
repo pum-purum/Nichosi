@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { databaseFetch } from './connection-status';
+
   import { groupMetadataKeys, metadataLabels } from './table-metadata';
   import ObjectDefinition from './ObjectDefinition.svelte';
   import type { components } from './api/schema';
@@ -24,7 +26,7 @@
     metadata = null; loading = true; error = '';
     void (async () => {
       try {
-        const response = await fetch(path, { signal: controller.signal });
+        const response = await databaseFetch(path, { signal: controller.signal });
         const body = await response.json();
         if (!response.ok) throw new Error(body.message || `Request failed (${response.status})`);
         if (!controller.signal.aborted) metadata = body as Metadata;

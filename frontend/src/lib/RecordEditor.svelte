@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { databaseFetch } from './connection-status';
+
   import { ArrowLeft, Save } from '@lucide/svelte';
   import { onDestroy } from 'svelte';
   import type { components } from './api/schema';
@@ -24,7 +26,7 @@
   onDestroy(() => { disposed = true; revision++; clearTimeout(timer); });
 
   async function post<T>(operation: string, body: components['schemas']['ChangeSet']): Promise<T> {
-    const response = await fetch(`/api/connections/${encodeURIComponent(connectionId)}/tables/${encodeURIComponent(table)}/changes/${operation}`, {
+    const response = await databaseFetch(`/api/connections/${encodeURIComponent(connectionId)}/tables/${encodeURIComponent(table)}/changes/${operation}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(12000),
     });
     const result = await response.json();

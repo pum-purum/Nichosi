@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { databaseFetch, unavailableConnection, connectionStatusVersion } from './lib/connection-status';
+
   import { Terminal, ChevronDown, ChevronRight, FolderTree, Settings2, ArrowLeft, Clock, ShieldCheck, UserRound, Database, HardDrive, KeyRound, Pencil, Plug, Search, Server, TableProperties, Trash2, Unplug, X } from '@lucide/svelte';
   import { onMount } from 'svelte';
   import { browserTimeZoneLabel, formatDateTime } from './lib/date-time';
@@ -129,6 +131,8 @@
   let rowsRequestId = 0;
   let databaseRequestId = 0;
   let reconnecting = $state(false);
+  let connecting = $state(false);
+  let connectionStatusStart = 0;
   let totalPages = $derived(Math.max(1, Math.ceil((rowsPage?.totalRows ?? 0) / pageSize)));
   let pagedRows = $derived(rowsPage?.rows ?? []);
   let pageItems = $derived.by(() => {
@@ -153,7 +157,7 @@
 
 
   async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-    const response = await fetch(path, {
+    const response = await databaseFetch(path, {
       ...init,
       headers: { 'Content-Type': 'application/json', ...init.headers },
     });
@@ -182,10 +186,13 @@
     rowsLoading = false;
     pendingPageControl = null;
     orderBy = []; resetRowFilters();
-    selectedConnection = connection; tableSearch = ''; tableTab = 'data'; selectedTable = ''; activeObjectType = 'table'; selectedObject = null; definitionRequestId++; definitionLoading = false; definitionError = ''; rowsPage = null; tables = []; objects = []; supportedObjectTypes = []; metadataWarnings = []; error = ''; databaseLoading = true;
+    connectionStatusStart = connectionStatusVersion();
+    connecting = true;
+    selectedConnection = { ...connection, connected: false }; tableSearch = ''; tableTab = 'data'; selectedTable = ''; activeObjectType = 'table'; selectedObject = null; definitionRequestId++; definitionLoading = false; definitionError = ''; rowsPage = null; tables = []; objects = []; supportedObjectTypes = []; metadataWarnings = []; error = ''; databaseLoading = true;
     try {
       const connected = await request<Connection>(`/api/connections/${encodeURIComponent(connection.id)}/connect`, { method: 'POST' });
       if (requestId !== databaseRequestId) return;
+      connecting = false;
       selectedConnection = connected;
       connections = connections.map((item) => item.id === connected.id ? connected : item);
       const schema = await request<components['schemas']['Schema']>(`/api/connections/${encodeURIComponent(connection.id)}/schema`);
@@ -195,7 +202,7 @@
         if (tables.length) await selectTable(tables[0].name, 1, null, 'table');
       } else selectSection(activeObjectType);
     } catch (cause) { if (requestId === databaseRequestId) error = cause instanceof Error ? cause.message : 'Could not read database schema'; }
-    finally { if (requestId === databaseRequestId) databaseLoading = false; }
+    finally { if (requestId === databaseRequestId) { databaseLoading = false; connecting = false; } }
   }
 
   async function selectTable(name: string, page = 1, control: number | 'previous' | 'next' | null = null, kind: 'table' | 'view' | 'materialized_view' = isViewType(activeObjectType) ? activeObjectType : 'table') {
@@ -257,6 +264,7 @@
     definitionRequestId++;
     resetRowFilters();
     selectedConnection = null;
+    connecting = false;
     selectedObject = null;
     rowsPage = null;
     databaseLoading = false;
@@ -362,7 +370,15 @@
     }
   }
 
-  onMount(() => { void loadConnections(); });
+  onMount(() => {
+    const unsubscribe = unavailableConnection.subscribe(failure => {
+      if (!failure || failure.request <= connectionStatusStart) return;
+      connections = connections.map(connection => connection.id === failure.id ? { ...connection, connected: false } : connection);
+      if (selectedConnection?.id === failure.id) selectedConnection = { ...selectedConnection, connected: false };
+    });
+    void loadConnections();
+    return unsubscribe;
+  });
 
   function formatBytes(bytes: number | null) {
     if (bytes === null) return 'Unavailable';
@@ -467,8 +483,8 @@
           </div>
           {/if}
           <div class="sidebar-footer">
-            <button class="connection-status" onclick={() => void disconnect()} aria-label={`Disconnect from ${selectedConnection.name}`} title="Disconnect">
-              <span class="connection-dot"></span><span>Connected</span><span class="sidebar-footer-host">{selectedConnection.driver === 'sqlite' ? selectedConnection.database : `${selectedConnection.host}:${selectedConnection.port}`}</span><Unplug size={15} />
+            <button class="connection-status" onclick={() => void disconnect()} aria-label={`Disconnect from ${selectedConnection.name}`} title="Disconnect" disabled={connecting}>
+              <span class="connection-dot" class:connected={selectedConnection.connected} aria-hidden="true"></span><span aria-live="polite">{connecting ? 'Connecting…' : selectedConnection.connected ? 'Connected' : 'Disconnected'}</span><span class="sidebar-footer-host">{selectedConnection.driver === 'sqlite' ? selectedConnection.database : `${selectedConnection.host}:${selectedConnection.port}`}</span><Unplug size={15} />
             </button>
           </div>
         </aside>

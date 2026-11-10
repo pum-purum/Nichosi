@@ -113,3 +113,6 @@ show a persistent history-retention caption under the Script history heading.
 Middle-panel headings must not repeat entity/history counters. Keep the Script
 history heading and its actions on one aligned row, with a 16px gap before the
 first history entry so the list does not touch the header controls.
+
+The sidebar footer shows Connecting while opening a database, Connected with a green dot only after a successful connection, and Disconnected with a neutral dot when no connection is open. Failed connection attempts must not retain a previous connected indicator.
+Connection failures from table, metadata, editing, history, and SQL console requests clear the sidebar connected indicator. Failed database operations check schema availability so ordinary SQL errors do not imply a lost connection. Cancelled requests do not change connection status.

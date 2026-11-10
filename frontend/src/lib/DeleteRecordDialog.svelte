@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { databaseFetch } from './connection-status';
+
   import { onMount } from 'svelte';
   import type { components } from './api/schema';
   import CellValue from './CellValue.svelte';
@@ -19,7 +21,7 @@
   const controller = new AbortController();
 
   async function post<T>(operation: 'preview' | 'apply'): Promise<T> {
-    const response = await fetch(`/api/connections/${encodeURIComponent(connectionId)}/tables/${encodeURIComponent(table)}/changes/${operation}`, {
+    const response = await databaseFetch(`/api/connections/${encodeURIComponent(connectionId)}/tables/${encodeURIComponent(table)}/changes/${operation}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify($changeSet),
       signal: AbortSignal.any([controller.signal, AbortSignal.timeout(12000)]),
     });
