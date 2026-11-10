@@ -177,6 +177,8 @@ kbd { flex: 0 0 auto; padding: 2px 4px; border: 1px solid #303930; border-radius
 .config-instructions { width: min(100%, 650px); margin-top: 26px; padding: 20px; border: 1px solid #303a30; border-radius: 10px; background: #171d17cc; text-align: left; box-shadow: 0 12px 36px #0002; }
 .config-source { margin: 0 0 15px; color: #c5d0bd; font-size: 11px; line-height: 1.5; }
 .config-source code { color: #e0eccf; font-family: var(--mono); }
+.config-note { margin: 12px 0 0; color: #aab4a5; font-size: 11px; line-height: 1.55; overflow-wrap: anywhere; }
+.config-note code { color: #d4e3c8; font-family: var(--mono); font-size: .95em; }
 .config-steps { display: grid; gap: 9px; margin: 0 0 15px; padding: 0; list-style: none; }
 .config-steps li { display: grid; grid-template-columns: 25px 1fr; align-items: start; gap: 9px; }
 .config-steps li > span { padding-top: 1px; color: #9eb486; font: 9px var(--mono); }

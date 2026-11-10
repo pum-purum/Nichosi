@@ -51,6 +51,7 @@ purpose-specific layouts; they are not toolbar action buttons.
 ## Product behavior
 
 - Keep the connections screen focused on saved connections. When none exist, show the first-connection guidance; when connections exist, show their database type, size, last connection, and an unavailable state where metadata cannot be provided.
+- Wrap inline configuration examples within the first-connection guidance card, including long JSON tokens and file paths.
 - Align database size and last connection in shared columns across all drivers, including SQLite profiles without host or user fields.
 - Visual prototypes must be explicitly labeled. Do not imply that database features work until they are connected to the API.
 - Do not use third-party screenshots, logos, product names, or distinctive layouts as design targets. Use any user-provided reference only for high-level layout guidance unless the user explicitly asks otherwise.
