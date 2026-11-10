@@ -6,7 +6,7 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile
     environment:
-      NICHOSI_CONNECTIONS_FILE: /config/connections.json
+      NICHOSI_CONNECTIONS_FILE: /data/config.json
     env_file:
       - path: ../.env
         required: false
@@ -15,7 +15,6 @@ services:
     volumes:
       - sqlite-demo:/sqlite
       - ../data:/data
-      - ../connections.json:/config/connections.json:ro
     restart: unless-stopped
 
 volumes:

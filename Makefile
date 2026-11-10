@@ -5,7 +5,8 @@ help:
 > @grep -E '^[a-z-]+:.*##' Makefile | sed 's/:.*##/ -/'
 
 re: ## build and start Nichosi in Docker
-> test -f connections.json || cp connections.example.json connections.json
+> mkdir -p data
+> test -f data/config.json || cp config.example.json data/config.json
 > docker compose -f deploy/docker-compose.yml up -d --build
 
 down: ## stop the Nichosi container

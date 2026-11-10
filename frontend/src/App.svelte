@@ -379,7 +379,7 @@
 
 {#snippet connectionInstructions()}
   <div class="config-instructions">
-    <p class="config-source">All database connections are loaded from <code>connections.json</code>.</p>
+    <p class="config-source">All database connections are loaded from <code>data/config.json</code>.</p>
     <ol class="config-steps">
       <li><span>01</span><p>Add a connection object, choose its driver and fill in the database details. For SQLite, use an absolute file path in database.</p></li>
       <li><span>02</span><p>For server databases, set <code>passwordEnv</code> to the password environment variable. SQLite needs no password.</p></li>
@@ -561,7 +561,7 @@
       <section class="empty-state" aria-labelledby="empty-title">
         <div class="empty-icon"><Database size={24} strokeWidth={1.7} /></div>
         <h1 id="empty-title">Loading connections.</h1>
-        <p>Reading saved profiles from <code>connections.json</code>.</p>
+        <p>Reading saved profiles from <code>data/config.json</code>.</p>
       </section>
     {:else if error}
       <section class="empty-state" aria-labelledby="empty-title">

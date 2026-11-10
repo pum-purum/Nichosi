@@ -1,10 +1,12 @@
 .git
 .env
 .env.*
-connections*.json
+config*.json
 frontend/node_modules
 frontend/dist
 backend/nichosi
 *.log
 
 .pnpm-store/
+
+data/

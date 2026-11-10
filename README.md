@@ -57,7 +57,7 @@ Move from a country ranking to album runtimes, travel journals, or playlist dive
 
 ![SQL history containing travel and music analyses, with a restored country ranking query and its results](docs/screenshots/script-history.jpg)
 
-History retains the latest 100 executions per connection. The Docker Compose setup below persists it in the `nichosi-data/` directory. Results are not stored in history.
+History retains the latest 100 executions per connection. The Docker Compose setup below persists it in the `data/` directory. Results are not stored in history.
 
 
 ## Run from Docker Hub
@@ -70,24 +70,25 @@ currently target `linux/amd64`.
 Create a directory for Nichosi data in your working directory:
 
 ```sh
-mkdir -p nichosi-data
+mkdir -p data
 ```
 
-Place your existing `connections.json` inside `nichosi-data/`. The same directory
+Place your configuration at `data/config.json` (copy `config.example.json` from
+the repository root for a new setup). The same directory
 stores SQL history and cached metadata. On Linux, grant the container user access
 before starting (run after placing the configuration file):
 
 ```sh
-sudo chown -R 65532:65532 nichosi-data
-sudo chmod 700 nichosi-data
-sudo chmod 600 nichosi-data/connections.json
+sudo chown -R 65532:65532 data
+sudo chmod 700 data
+sudo chmod 600 data/config.json
 ```
 
-Save `compose.yaml` in the working directory, alongside `nichosi-data/`.
+Save `compose.yaml` in the working directory, alongside `data/`.
 No environment variables or `.env` file are required. The image already listens
-on port `8080` and reads `/data/connections.json`.
+on port `8080` and reads `/data/config.json`.
 
-**`connections.json`** contains your connection profiles, including database
+**`config.json`** contains your connection profiles, including database
 passwords. If you already have this file, keep your profiles. For a new setup,
 adjust this example:
 
@@ -127,27 +128,27 @@ services:
       - "127.0.0.1:8080:8080"
     volumes:
       # Configuration, SQL history, and metadata in one host directory.
-      - ./nichosi-data:/data
+      - ./data:/data
 ```
 
-Keep `connections.json` private and out of version control: it contains database passwords. For a database in another Compose
+Keep `config.json` private and out of version control: it contains database passwords. For a database in another Compose
 project, attach Nichosi to that database's Docker network and use its service name
 as `host`. Inside the Nichosi container, `localhost` refers to Nichosi itself.
 For SQLite, mount your existing database file separately and use its container
 path as `database`; see [SQLite files](#sqlite-files) for permissions and profiles.
 
-For a quick test without Compose, use the same `nichosi-data/` directory:
+For a quick test without Compose, use the same `data/` directory:
 
 ```sh
 docker run -d --name nichosi --pull always \
   -p 127.0.0.1:8080:8080 \
-  -v "$PWD/nichosi-data:/data" \
+  -v "$PWD/data:/data" \
   pumphonia/nichosi:latest
 ```
 
 Open [http://127.0.0.1:8080](http://127.0.0.1:8080). View logs with
 `docker logs nichosi`; stop and remove the test container with `docker rm -f nichosi`
-before switching to Compose. Your data stays in `nichosi-data/`.
+before switching to Compose. Your data stays in `data/`.
 
 Run these commands from the directory containing `compose.yaml`:
 
@@ -158,12 +159,12 @@ docker compose up -d
 
 Open [http://127.0.0.1:8080](http://127.0.0.1:8080) and select your connection.
 Use `docker compose logs nichosi` to inspect logs and `docker compose restart nichosi`
-to reload changes to `connections.json`. After changing `compose.yaml`,
+to reload changes to `config.json`. After changing `compose.yaml`,
 run `docker compose up -d` to recreate the container with the new settings.
 
 To update to the latest published image, run `docker compose pull` and
 `docker compose up -d` again. Stop the app with
-`docker compose down`. The host `nichosi-data/` directory survives container
+`docker compose down`. The host `data/` directory survives container
 removal, including `docker compose down -v`. Back it up together with any SQLite files.
 
 Use **Refresh** above the data grid to reload the current table or view without
@@ -188,7 +189,7 @@ no separate table storage; table-only indexes, foreign keys and triggers are not
 
 ## Troubleshooting
 
-- **No connections appear:** Check that `connections.json` contains valid details and valid JSON, then restart the app.
+- **No connections appear:** Check that `config.json` contains valid details and valid JSON, then restart the app.
 - **The database cannot be reached:** Check the host and port from inside Docker. A database address that works on your computer may not work from a container.
 - **Users and roles are unavailable:** MySQL account lists require the optional administrator-installed `nichosi_account_metadata` view. Its absence does not affect other database objects. See [account metadata setup](docs/database-objects.md).
 - **The page does not open:** Check that Docker is running and port `8080` is not already in use. View container logs with `docker compose logs nichosi`.
@@ -205,7 +206,7 @@ and page-size changes; selecting another table or view resets it. MySQL determin
 NULL ordering and text collation. Primary keys break ties when available.
 
 Database sizes and last successful connection times are stored in
-`nichosi-data/connection-metadata.json`, alongside SQL history. The metadata file
+`data/connection-metadata.json`, alongside SQL history. The metadata file
 contains no passwords or DSNs. Configured connections start disconnected and
 display their cached observations until the next successful connection.
 
@@ -218,7 +219,7 @@ read-only mode; writable profiles use a transaction for each ChangeSet. Tables
 without a usable primary or non-null unique key and all views remain read-only in
 the grid. The SQL console can execute scripts on writable profiles.
 
-Add this profile to `connections.json`:
+Add this profile to `config.json`:
 
 ```json
 {"name":"SQLite database","driver":"sqlite","database":"/sqlite/database.sqlite","readonly":false}
@@ -236,7 +237,7 @@ The profile above opens `/sqlite/database.sqlite` inside the container. Give UID
 65532 access to the directory and file, including write permissions when editing
 is needed (SQLite also creates journal files). Run `docker compose up -d` to apply
 the mount change. Nichosi never creates a missing database or installs demo data.
-Back up the SQLite directory together with `nichosi-data/`.
+Back up the SQLite directory together with `data/`.
 
 ## SQL scripts and history
 

@@ -85,7 +85,7 @@ reconstructed statements and unavailable definitions are identified in metadata.
 Table metadata includes columns, indexes and foreign keys; a complete CREATE TABLE
 statement is not reconstructed.
 
-Use `passwordEnv` in `connections.json` to name an environment variable containing
+Use `passwordEnv` in `data/config.json` to name an environment variable containing
 the password. This takes precedence over the legacy `password` field. With Docker
 Compose, set `NICHOSI_POSTGRES_PASSWORD` in the ignored root `.env` file; Compose
 passes it to Nichosi. Direct backend runs require exporting the variable explicitly.

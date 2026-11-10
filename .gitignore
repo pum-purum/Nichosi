@@ -5,7 +5,7 @@ bin/
 *.log
 .env
 .env.*
-connections.json
+config.json
 .DS_Store
 
 .pnpm-store/

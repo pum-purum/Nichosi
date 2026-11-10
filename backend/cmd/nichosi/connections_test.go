@@ -24,7 +24,7 @@ func TestLoadConfiguredConnectionsReadonly(t *testing.T) {
 		{name: "string is invalid", setting: `,"readonly":"false"`, invalid: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			file := filepath.Join(t.TempDir(), "connections.json")
+			file := filepath.Join(t.TempDir(), "config.json")
 			config := `{"connections":[{"name":"Local","driver":"mysql","host":"127.0.0.1","port":3306,"user":"tester","database":"lab","password":"test-password"` + tc.setting + `}]}`
 			if err := os.WriteFile(file, []byte(config), 0600); err != nil {
 				t.Fatal(err)
@@ -115,7 +115,7 @@ func TestLoadConfiguredConnectionEngine(t *testing.T) {
 		{"unknown engine", "mysql", "other", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			file := filepath.Join(t.TempDir(), "connections.json")
+			file := filepath.Join(t.TempDir(), "config.json")
 			config := connectionsConfig{Connections: []connectionConfig{{
 				Name: "Local", Driver: tc.driver, Engine: tc.engine, Host: "localhost", Port: 3306,
 				User: "tester", Database: "lab", Password: "test-password",
