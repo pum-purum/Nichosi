@@ -57,7 +57,7 @@
       keymap.of([{ key: 'Mod-Enter', run: () => { void execute(); return true; } }, ...defaultKeymap, ...historyKeymap]),
       EditorView.contentAttributes.of({ 'aria-label': 'SQL script', spellcheck: 'false' }),
       EditorView.updateListener.of(update => { if (update.docChanged) { source = update.state.doc.toString(); saveDraft(); } }),
-      EditorView.theme({ '&': { height: '100%', backgroundColor: 'var(--bg, #191b1f)', color: 'var(--sql-text)' }, '.cm-scroller': { overflow: 'auto', fontFamily: 'monospace', fontSize: '14px' }, '.cm-content': { minHeight: '180px', caretColor: '#83c96f' }, '.cm-gutters': { backgroundColor: 'transparent', color: '#777f8b', border: 'none' }, '.cm-activeLine': { backgroundColor: '#ffffff05' }, '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': { backgroundColor: '#83c96f35' }, '.cm-cursor': { borderLeftColor: '#83c96f' } }, { dark: true }),
+      EditorView.theme({ '&': { height: '100%', backgroundColor: 'var(--bg, #191b1f)', color: 'var(--sql-text)' }, '.cm-scroller': { overflow: 'auto', fontFamily: 'var(--mono)', fontSize: '14px' }, '.cm-content': { minHeight: '180px', caretColor: 'var(--accent)' }, '.cm-gutters': { backgroundColor: 'transparent', color: '#777f8b', border: 'none' }, '.cm-activeLine': { backgroundColor: '#ffffff05' }, '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': { backgroundColor: 'color-mix(in srgb, var(--accent) 21%, transparent)' }, '.cm-cursor': { borderLeftColor: 'var(--accent)' } }, { dark: true }),
     ] }) });
     return () => { scriptHistory.setExecuting(false); alive = false; lifecycle.abort(); editor.destroy(); };
   });

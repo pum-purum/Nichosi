@@ -20,9 +20,9 @@ Connection cards use locally bundled Simple Icons database logos: the MySQL dolp
 
 ## Color and type
 
-- Use neutral graphite surfaces as the default dark theme. Avoid a green cast across backgrounds and panels.
-- Use soft grass-green (`#83c96f`) for focus, object icons, size bars, pagination, and primary actions. Use the same green accent for the selected object in the sidebar list and the active icon in the far-left navigation rail. Give the active rail icon a restrained tinted background and an inset marker. Keep icons, labels, and `aria-current` so selection never relies on color alone. Keep the accents distinct from neutral surfaces.
-- Use readable system typography. Table content should remain compact enough for scanning while labels and controls stay comfortably legible; avoid tiny metadata text.
+- Use blue-gray surfaces: `#1f2937` for the workspace, `#182231` for the object sidebar, `#111827` for the navigation rail, and `#243041` / `#2d3b4f` for panels and raised controls. Keep borders subdued and cool.
+- Use bright green (`#4ade80`) for focus, object icons, size bars, pagination, and primary actions. Use the same green accent for the selected object in the sidebar list and the active icon in the far-left navigation rail. Give the active rail icon a restrained tinted background and an inset marker. Keep icons, labels, and `aria-current` so selection never relies on color alone. Keep the accents distinct from neutral surfaces.
+- Use locally bundled DM Sans for interface text and JetBrains Mono for SQL, code, and monospaced metadata, with system fallbacks. Fonts use the SIL Open Font License; license files ship under `/fonts/`. Do not load fonts from external services. Table content should remain compact enough for scanning while labels and controls stay comfortably legible; avoid tiny metadata text.
 - Preserve visible keyboard focus, sufficient contrast, and clear disabled states. Do not communicate state by color alone.
 
 All SQL surfaces use the Table info palette through the shared `--sql-*` CSS

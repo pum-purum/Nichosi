@@ -45,7 +45,7 @@
 
 <style>
   .definition-panel { margin-top: 28px; min-width: 0; }
-  .definition-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 12px; background: #252829; border: 1px solid #414546; border-radius: 6px 6px 0 0; }
+  .definition-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 12px; background: var(--surface-raised); border: 1px solid var(--line); border-radius: 6px 6px 0 0; }
   .definition-toolbar h2 { margin: 0; font-size: 14px; }
   .definition-toolbar > span { color: #a8aeaa; font-size: 11px; }
   .copy-sql { position: absolute; top: 8px; right: 8px; z-index: 1; display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid var(--line); border-radius: 5px; background: var(--surface-raised); color: var(--text); cursor: pointer; opacity: 0; pointer-events: none; }
@@ -53,9 +53,9 @@
   .copy-sql:hover { background: var(--surface); }
   @media (hover: none) { .copy-sql { opacity: 1; pointer-events: auto; } }
   button:focus-visible, pre:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .definition-code { position: relative; display: flex; overflow: auto; background: #202324; border: 1px solid #414546; border-top: 0; border-radius: 0 0 6px 6px; }
-  .definition-lines, pre { margin: 0; padding: 16px; font: 13px/1.7 ui-monospace, monospace; white-space: pre; tab-size: 4; }
-  .definition-lines { flex: none; color: #8e9892; text-align: right; border-right: 1px solid #373d39; user-select: none; }
+  .definition-code { position: relative; display: flex; overflow: auto; background: var(--surface); border: 1px solid var(--line); border-top: 0; border-radius: 0 0 6px 6px; }
+  .definition-lines, pre { margin: 0; padding: 16px; font: 13px/1.7 var(--mono); white-space: pre; tab-size: 4; }
+  .definition-lines { flex: none; color: #8e9892; text-align: right; border-right: 1px solid var(--line-soft); user-select: none; }
   pre { padding-right: 52px; flex: 1; min-width: 0; overflow: auto; color: var(--sql-text); }
   code { font: inherit; }
   .definition-feedback { margin: 8px 0 0; color: #c6cdc8; font-size: 12px; }
