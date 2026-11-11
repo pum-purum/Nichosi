@@ -4,6 +4,8 @@ Nichosi is a quiet, local-first database workspace with an original visual ident
 
 ## Table workspace
 
+Show the configured connection name in the bottom-left connection status and in the browser title (`Connection name · Nichosi`). Keep the full name available as a tooltip when the status label is truncated.
+
 Connection cards share column widths across the list so metadata icons and status badges align vertically. Keep the driver icon column compact and size the last-connection column to its contents. Reserve the read-only column even when a connection has no read-only marker. Omit connection-state badges from the cards. Label the last successful connection timestamp as `Last connect at …`, or show `Never connected` when no successful connection is recorded.
 
 Connection cards use locally bundled Simple Icons database logos: the MySQL dolphin, MariaDB seal, PostgreSQL elephant, and SQLite feather. Display them at 26px with light tints for contrast on the dark background. Each logo has a database-type tooltip and accessible label. Use the connection engine when available, falling back to its driver.

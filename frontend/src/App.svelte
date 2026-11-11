@@ -433,7 +433,7 @@
                   </button>
 {/snippet}
 
-<svelte:head><title>{selectedConnection?.database || 'Databases'} · Nichosi</title></svelte:head>
+<svelte:head><title>{selectedConnection?.name || 'Databases'} · Nichosi</title></svelte:head>
 
 <div class="app-shell">
   <main class:has-connections={connections.length > 0} class:database-open={selectedConnection !== null}>
@@ -485,7 +485,7 @@
           {/if}
           <div class="sidebar-footer">
             <button class="connection-status" onclick={() => void disconnect()} aria-label={`Disconnect from ${selectedConnection.name}`} title="Disconnect" disabled={connecting}>
-              <span class="connection-dot" class:connected={selectedConnection.connected} aria-hidden="true"></span><span aria-live="polite">{connecting ? 'Connecting…' : selectedConnection.connected ? 'Connected' : 'Disconnected'}</span><span class="sidebar-footer-host">{selectedConnection.driver === 'sqlite' ? selectedConnection.database : `${selectedConnection.host}:${selectedConnection.port}`}</span><Unplug size={15} />
+              <span class="connection-dot" class:connected={selectedConnection.connected} aria-hidden="true"></span><span aria-live="polite">{connecting ? 'Connecting…' : selectedConnection.connected ? 'Connected' : 'Disconnected'}</span><span class="sidebar-footer-host" title={selectedConnection.name}>{selectedConnection.name}</span><Unplug size={15} />
             </button>
           </div>
         </aside>
