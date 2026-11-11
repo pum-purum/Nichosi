@@ -1,7 +1,7 @@
 <script lang="ts">
   import { databaseFetch, unavailableConnection, connectionStatusVersion } from './lib/connection-status';
 
-  import { Terminal, ChevronDown, ChevronRight, FolderTree, Settings2, ArrowLeft, Clock, ShieldCheck, UserRound, Database, HardDrive, KeyRound, Pencil, Plug, Search, Server, TableProperties, Trash2, Unplug, X } from '@lucide/svelte';
+  import { Terminal, ChevronDown, ChevronRight, FolderTree, Settings2, ArrowLeft, Clock, ShieldCheck, UserRound, Database, HardDrive, KeyRound, Pencil, Search, Server, TableProperties, Trash2, Unplug, X } from '@lucide/svelte';
   import { onMount } from 'svelte';
   import { browserTimeZoneLabel, formatDateTime } from './lib/date-time';
   import ScriptHistorySidebar from './lib/ScriptHistorySidebar.svelte';
@@ -606,9 +606,8 @@
                 {/if}
                 <span class="connection-meta" title={connection.driver === 'sqlite' ? 'Database file' : 'Database'}><Database size={14} /><span>{connection.database}</span></span>
                 <span class="connection-meta connection-size" title="Database size"><HardDrive size={14} /><span>{formatBytes(connection.databaseSizeBytes)}</span></span>
-                <span class="connection-meta connection-time" title={connection.lastConnectedAt ? `Last connection · ${browserTimeZoneLabel(connection.lastConnectedAt)}` : 'Last connection'}><Clock size={14} /><span>{formatDateTime(connection.lastConnectedAt)}{#if connection.lastConnectedAt} <span class="timezone-badge">{browserTimeZoneLabel(connection.lastConnectedAt)}</span>{/if}</span></span>
+                <span class="connection-meta connection-time" title={connection.lastConnectedAt ? `Last connect at ${formatDateTime(connection.lastConnectedAt)} · ${browserTimeZoneLabel(connection.lastConnectedAt)}` : 'Never connected'}><Clock size={14} /><span>{connection.lastConnectedAt ? `Last connect at ${formatDateTime(connection.lastConnectedAt)}` : 'Never connected'}{#if connection.lastConnectedAt} <span class="timezone-badge">{browserTimeZoneLabel(connection.lastConnectedAt)}</span>{/if}</span></span>
                 {#if connection.readonly}<span class="connection-readonly" title="Read-only connection"><ShieldCheck size={14} /> Read only</span>{/if}
-                <span class:connected={connection.connected} class="preview-badge" role="img" aria-label={connection.connected ? 'Connected' : 'Not connected'} title={connection.connected ? 'Connected' : 'Not connected'}>{#if connection.connected}<Plug size={16} aria-hidden="true" />{:else}<Unplug size={16} aria-hidden="true" />{/if}</span>
               </div>
               {#if connection.configurationErrors?.length}
                 <div class="connection-config-errors"><strong>Invalid configuration · fix data/config.json and restart</strong><ul>{#each connection.configurationErrors as problem}<li>{problem}</li>{/each}</ul></div>
