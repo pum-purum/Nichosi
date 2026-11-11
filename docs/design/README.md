@@ -116,3 +116,5 @@ first history entry so the list does not touch the header controls.
 
 The sidebar footer shows Connecting while opening a database, Connected with a green dot only after a successful connection, and Disconnected with a neutral dot when no connection is open. Failed connection attempts must not retain a previous connected indicator.
 Connection failures from table, metadata, editing, history, and SQL console requests clear the sidebar connected indicator. Failed database operations check schema availability so ordinary SQL errors do not imply a lost connection. Cancelled requests do not change connection status.
+
+Database and table loading use a centered, animated three-bar preloader on a translucent grid overlay. Keep loading labels available to screen readers without visible placeholder text. Respect reduced-motion preferences with a static indicator.
