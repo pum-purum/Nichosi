@@ -30,7 +30,7 @@ describe('script history sidebar state', () => {
   });
   it('reports errors and ignores late responses after leaving the console', async () => {
     const pending = deferred();
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(Response.json({ message: 'Unavailable' }, { status: 503 })).mockReturnValueOnce(pending.promise));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(Response.json({ message: 'Unavailable' }, { status: 503 })).mockResolvedValueOnce(Response.json({})).mockReturnValueOnce(pending.promise));
     const history = createScriptHistory('a'); await history.load(); expect(get(history).error).toBe('Unavailable');
     const load = history.load(); history.dispose(); pending.resolve(Response.json([{ id: 'late' }])); await load;
     expect(get(history).entries).toEqual([]);

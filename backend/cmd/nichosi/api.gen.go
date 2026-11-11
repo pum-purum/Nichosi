@@ -374,10 +374,13 @@ type ScriptHistoryEntry struct {
 	// Error Database driver error text without application boilerplate, with connection secrets redacted. Local execution failures use concise messages.
 	Error      string    `json:"error"`
 	ExecutedAt time.Time `json:"executedAt"`
-	Id         string    `json:"id"`
-	RowLimit   int       `json:"rowLimit"`
-	Sql        string    `json:"sql"`
-	Success    bool      `json:"success"`
+
+	// ExecutionCount Number of consecutive executions with exactly identical SQL.
+	ExecutionCount int    `json:"executionCount"`
+	Id             string `json:"id"`
+	RowLimit       int    `json:"rowLimit"`
+	Sql            string `json:"sql"`
+	Success        bool   `json:"success"`
 }
 
 // ScriptResult defines model for ScriptResult.

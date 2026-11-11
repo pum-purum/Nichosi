@@ -179,15 +179,14 @@ advice or a duplicate rollback caption. Connection credentials and DSNs are
 redacted before errors are returned or stored in history.
 
 The SQL console replaces the object tree with script history in the left sidebar.
-History lists the most recent 100 executions per connection for this server
-session. Each entry shows SQL, timestamp and duration, with green/red outcome highlighting
+History lists the most recent 100 execution groups per connection. Consecutive
+executions with exactly identical SQL (including whitespace) share one entry with
+a repeat count. Its timestamp, duration, options and outcome reflect the latest run. Each entry shows SQL, timestamp and duration, with green/red outcome highlighting
 and no status icons; selecting it loads
 the script into the editor. Refresh and Clear history are available in the sidebar. Selecting an entry restores SQL, then requires explicit
-execution. Clear history removes retained source. Server
-restart clears all history; results are not stored. SQL is neither logged nor
-persisted in browser storage or on disk. See
-[the SQL console decision](decisions/001-sql-script-console.md) for constraints and
-future encrypted persistence.
+execution. Clear history removes retained source. History is persisted in the
+configured history directory and survives server restarts; results are not stored.
+SQL is neither logged nor persisted in browser storage.
 
 The console accepts exactly one SQL statement per execution. Multiple statements
 show a warning and disable Execute (including its keyboard shortcut); the API

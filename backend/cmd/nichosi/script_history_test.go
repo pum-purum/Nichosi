@@ -10,7 +10,7 @@ func TestScriptHistoryPersistence(t *testing.T) {
 	dir := t.TempDir()
 	a := &app{historyDir: dir}
 	item := &profile{Connection: Connection{Id: "old", Database: "example"}}
-	item.scripts.history = []ScriptHistoryEntry{{Id: "execution", Sql: "SELECT 1"}}
+	item.scripts.history = []ScriptHistoryEntry{{Id: "execution", Sql: "SELECT 1", ExecutionCount: 5}}
 	if err := a.saveScriptHistory(item); err != nil {
 		t.Fatal(err)
 	}
@@ -19,7 +19,7 @@ func TestScriptHistoryPersistence(t *testing.T) {
 	if err := restarted.loadScriptHistory(restored); err != nil {
 		t.Fatal(err)
 	}
-	if len(restored.scripts.history) != 1 || restored.scripts.history[0].Sql != "SELECT 1" {
+	if len(restored.scripts.history) != 1 || restored.scripts.history[0].Sql != "SELECT 1" || restored.scripts.history[0].ExecutionCount != 5 {
 		t.Fatal("history did not survive restart and changed connection ID")
 	}
 	other := &profile{Connection: Connection{Database: "other"}}
@@ -76,5 +76,20 @@ func TestScriptHistoryReloadsSharedIdentity(t *testing.T) {
 	data, err := os.ReadFile(path)
 	if err != nil || string(data) != "broken" {
 		t.Fatal("loading modified corrupt history")
+	}
+}
+
+func TestScriptHistoryLegacyCount(t *testing.T) {
+	a := &app{historyDir: t.TempDir()}
+	item := &profile{Connection: Connection{Database: "legacy"}}
+	path := filepath.Join(a.historyDir, metadataKey(item.Connection)+".json")
+	if err := os.WriteFile(path, []byte(`[{"id":"old","sql":"SELECT 1"}]`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.loadScriptHistory(item); err != nil {
+		t.Fatal(err)
+	}
+	if len(item.scripts.history) != 1 || item.scripts.history[0].ExecutionCount != 1 {
+		t.Fatal("legacy execution must count as one run")
 	}
 }

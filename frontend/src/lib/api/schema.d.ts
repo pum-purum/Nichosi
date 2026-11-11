@@ -60,7 +60,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Most recent 100 executions for this connection, newest first. History is persisted in the configured data directory and survives server restarts. Results are not retained. Repeating an entry loads its source and requires explicit execution. */
+        /** @description Most recent 100 execution groups for this connection, newest first. Consecutive executions with exactly identical SQL share one entry and increment executionCount; timestamp, duration, execution options and outcome reflect the latest execution. History is persisted in the configured data directory and survives server restarts. Results are not retained. Repeating an entry loads its source and requires explicit execution. */
         get: operations["listScriptHistory"];
         put?: never;
         post?: never;
@@ -315,6 +315,8 @@ export interface components {
             atomic: boolean;
             /** Format: date-time */
             executedAt: string;
+            /** @description Number of consecutive executions with exactly identical SQL. */
+            executionCount: number;
             /** Format: int64 */
             durationMs: number;
             success: boolean;

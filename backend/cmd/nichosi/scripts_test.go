@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -82,7 +83,7 @@ func TestScriptHTTP(t *testing.T) {
 		t.Fatal(w.Body.String())
 	}
 	for i := 0; i < 101; i++ {
-		result = execution(map[string]any{"sql": "SELECT 1;"})
+		result = execution(map[string]any{"sql": fmt.Sprintf("SELECT %d;", i)})
 		if !result.Entry.Success {
 			t.Fatal(result.Entry.Error)
 		}
@@ -93,6 +94,22 @@ func TestScriptHTTP(t *testing.T) {
 	}
 	if len(history) != 100 || history[0].Id == history[1].Id {
 		t.Fatal("history limit or execution identity broken")
+	}
+	first := execution(map[string]any{"sql": "SELECT 999;", "rowLimit": 1})
+	for count := 2; count <= 5; count++ {
+		repeated := execution(map[string]any{"sql": "SELECT 999;", "rowLimit": count})
+		if repeated.Entry.Id != first.Entry.Id || repeated.Entry.ExecutionCount != count || repeated.Entry.RowLimit != count || !repeated.Entry.ExecutedAt.After(first.Entry.ExecutedAt) {
+			t.Fatalf("repeat did not update latest execution: %+v", repeated.Entry)
+		}
+	}
+	w = call(a.listScriptHistory, nil)
+	if err := json.Unmarshal(w.Body.Bytes(), &history); err != nil || len(history) != 100 || history[0].ExecutionCount != 5 || history[1].Sql != "SELECT 100;" {
+		t.Fatalf("unexpected grouped history: %s", w.Body.String())
+	}
+	spaced := execution(map[string]any{"sql": "SELECT 999; "})
+	separated := execution(map[string]any{"sql": "SELECT 999;"})
+	if spaced.Entry.ExecutionCount != 1 || separated.Entry.ExecutionCount != 1 || separated.Entry.Id == first.Entry.Id {
+		t.Fatal("different SQL or nonconsecutive executions were merged")
 	}
 	for _, atomic := range []bool{true, false} {
 		w = call(a.executeScript, map[string]any{"sql": "INSERT INTO entries VALUES(99); SELECT 1;", "atomic": atomic})

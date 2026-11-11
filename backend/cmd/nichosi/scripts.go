@@ -119,7 +119,7 @@ func (a *app) executeScript(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 	outputs, err := driver.ExecuteScriptMode(ctx, item.pool, string(item.Driver), readonly, statements, limit, atomic)
-	entry := ScriptHistoryEntry{Atomic: atomic, Id: scriptID(), Sql: input.Sql, RowLimit: limit, ExecutedAt: started, DurationMs: time.Since(started).Milliseconds(), Success: err == nil, Error: ""}
+	entry := ScriptHistoryEntry{ExecutionCount: 1, Atomic: atomic, Id: scriptID(), Sql: input.Sql, RowLimit: limit, ExecutedAt: started, DurationMs: time.Since(started).Milliseconds(), Success: err == nil, Error: ""}
 	if err != nil {
 		entry.Error = redactScriptError(driver.ScriptErrorMessage(err), item.input.Password)
 	}
@@ -130,7 +130,14 @@ func (a *app) executeScript(w http.ResponseWriter, r *http.Request) {
 	if loadErr != nil {
 		slog.Error("could not load script history")
 	}
-	state.history = append([]ScriptHistoryEntry{entry}, state.history...)
+	if len(state.history) > 0 && state.history[0].Sql == entry.Sql {
+		previous := state.history[0]
+		entry.Id = previous.Id
+		entry.ExecutionCount = max(1, previous.ExecutionCount) + 1
+		state.history[0] = entry
+	} else {
+		state.history = append([]ScriptHistoryEntry{entry}, state.history...)
+	}
 	if len(state.history) > 100 {
 		state.history = state.history[:100]
 	}
@@ -266,6 +273,9 @@ func (a *app) loadScriptHistory(item *profile) error {
 	}
 	if len(entries) > 100 {
 		entries = entries[:100]
+	}
+	for i := range entries {
+		entries[i].ExecutionCount = max(1, entries[i].ExecutionCount)
 	}
 	item.scripts.history = entries
 	item.scripts.loaded = true
