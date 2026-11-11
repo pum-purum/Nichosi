@@ -1,6 +1,6 @@
 # Nichosi
 
-A database workspace in your browser. Explore tables and views, build precise filters, inspect schema details, and turn SQL into answers — in a dark, IDE-style interface.
+A database workspace in your browser. Explore tables and views, build precise filters, inspect schema details, and turn SQL into answers — in a dark, IDE-style interface with blue-gray panels and bright green accents.
 
 Nichosi connects to **MySQL, MariaDB, PostgreSQL, and SQLite**. It runs as a self-hosted web app in Docker, with a Go backend and a Svelte + TypeScript frontend. Connections default to read-only; editing requires an explicit writable profile and driver support.
 
@@ -19,17 +19,19 @@ Nichosi connects to **MySQL, MariaDB, PostgreSQL, and SQLite**. It runs as a sel
 
 ## A closer look
 
-These are actual application screenshots at 1920 × 1080, captured against a PostgreSQL demo database. The `culture` dataset connects countries, cities, people, music, playlists, landmarks, and travel diaries through 11 tables and two views. People and activity are fictional; cultural references and numeric values are illustrative. Demo data is not installed automatically when you start Nichosi.
+The interface uses **DM Sans** for labels and controls, and **JetBrains Mono** for SQL and code. Both fonts are bundled locally under the SIL Open Font License 1.1; no external font service is required.
+
+All six screenshots in this README show the updated blue-gray theme at **1920 × 1080**, captured against a PostgreSQL demo database. The `culture` dataset connects countries, cities, people, music, playlists, landmarks, and travel diaries through 11 tables and two views. People and activity are fictional; cultural references and numeric values are illustrative. Demo data is not installed automatically when you start Nichosi.
 
 ### Start with your connections
 
-The start screen brings your saved database profiles together, with their database engine, connection state, read-only status, cached size, and last successful connection time. Choose a profile to enter its workspace. Nichosi runs locally without a separate application login.
+The start screen brings your saved database profiles together, with their database engine, connection state, read-only status, cached size, and last successful connection time. Invalid profiles stay visible with actionable configuration errors. Choose a valid profile to enter its workspace. Nichosi runs locally without a separate application login.
 
 ![Nichosi start screen showing saved MySQL, PostgreSQL and SQLite connections](docs/screenshots/connections.jpg)
 
 ### Filters that express more than a search box
 
-Find tracks between three and seven minutes, restrict their album position, or include a title match. The builder and expression field show the same filter; this example returns 24 matching tracks.
+Find tracks between three and seven minutes, restrict their album position, or include a title match. The builder and expression field show the same filter; this example returns 17 matching tracks.
 
 ![Applied song filter combining BETWEEN, AND, OR and LIKE, with matching PostgreSQL rows](docs/screenshots/filters.jpg)
 
