@@ -11,7 +11,7 @@ export function draftValue(value: unknown): DraftValue {
 export function editableColumn(column: Column, value?: unknown): boolean {
   return !isBinaryValue(value) && !column.primaryKey && !column.generated && columnKind(column.type) !== 'binary';
 }
-export function fieldError(column: Column, after: DraftValue): string {
+export function fieldError(column: Column, after: DraftValue, insert = false): string {
   if (after.isNull) return column.nullable ? '' : `${column.name} cannot be NULL.`;
   const kind = columnKind(column.type);
   if (kind === 'integer' && !/^[+-]?\d+$/.test(after.text)) return `${column.name} requires an integer.`;
@@ -19,6 +19,7 @@ export function fieldError(column: Column, after: DraftValue): string {
   if (kind === 'json') {
     try { JSON.parse(after.text); } catch { return `${column.name} requires valid JSON.`; }
   }
+  if (insert && !column.nullable && kind !== 'text' && after.text === '') return `${column.name} is required.`;
   return '';
 }
 export function rowFieldErrors(columns: Column[], original: unknown[], draft: DraftValue[], insert = false): string[] {
@@ -27,7 +28,7 @@ export function rowFieldErrors(columns: Column[], original: unknown[], draft: Dr
     if (insert ? !insertableColumn(column) || after.useDefault : !editableColumn(column, original[index])) return '';
     const before = draftValue(original[index]);
     if (!insert && before.isNull === after.isNull && (after.isNull || before.text === after.text)) return '';
-    return fieldError(column, after);
+    return fieldError(column, after, insert);
   });
 }
 export function rowChanges(columns: Column[], original: unknown[], draft: DraftValue[], editKey: string[], insert = false): ChangeSet {
@@ -38,7 +39,7 @@ export function rowChanges(columns: Column[], original: unknown[], draft: DraftV
     const before = draftValue(original[index]);
     const after = draft[index];
     if (!insert && before.isNull === after.isNull && (after.isNull || before.text === after.text)) return;
-    const error = fieldError(column, after);
+    const error = fieldError(column, after, insert);
     if (error) throw new Error(error);
     let value: unknown = after.isNull ? null : after.text;
     const kind = columnKind(column.type);

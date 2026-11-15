@@ -108,6 +108,30 @@ describe('record insertion', () => {
 });
 
 describe('field validation', () => {
+  it('accepts empty text while reporting all other invalid insertion fields', () => {
+    const fields: Column[] = [
+      { name: 'quantity', type: 'integer', nullable: false, primaryKey: false },
+      { name: 'title', type: 'text', nullable: false, primaryKey: false },
+      { name: 'created', type: 'date', nullable: false, primaryKey: false },
+    ];
+    const draft = insertionDraft(fields);
+    expect(rowFieldErrors(fields, [], draft, true)).toEqual([
+      'quantity requires an integer.', '', 'created is required.',
+    ]);
+    draft[0].text = '1';
+    expect(() => rowChanges(fields, [], draft, [], true)).toThrow('created is required.');
+    draft[2].text = '2026-11-15';
+    expect(rowFieldErrors(fields, [], draft, true)).toEqual(['', '', '']);
+    expect(rowChanges(fields, [], draft, [], true).changes[0].values).toEqual({
+      quantity: '1', title: '', created: '2026-11-15',
+    });
+  });
+  it('preserves explicit empty strings when editing non-nullable text', () => {
+    const fields: Column[] = [{ name: 'title', type: 'text', nullable: false, primaryKey: false }];
+    const draft = [{ text: '', isNull: false }];
+    expect(rowFieldErrors(fields, ['Example'], draft)).toEqual(['']);
+    expect(rowChanges(fields, ['Example'], draft, ['title']).changes[0].values).toEqual({ title: '' });
+  });
   it('reports all invalid fields and clears corrected or defaulted values', () => {
     const fields: Column[] = [
       { name: 'artist_id', type: 'integer', nullable: false, primaryKey: false },
