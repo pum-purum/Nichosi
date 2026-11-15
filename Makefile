@@ -9,6 +9,10 @@ re: ## build and start Nichosi in Docker
 > test -f data/config.json || cp config.example.json data/config.json
 > docker compose -f deploy/docker-compose.yml up -d --build
 
+up: ## stop and start Nichosi in Docker
+> docker compose -f deploy/docker-compose.yml stop
+> docker compose -f deploy/docker-compose.yml up -d
+
 down: ## stop the Nichosi container
 > docker compose -f deploy/docker-compose.yml down
 
