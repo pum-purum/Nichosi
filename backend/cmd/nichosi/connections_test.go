@@ -12,9 +12,14 @@ import (
 func TestLoadConfiguredConnectionsReadonly(t *testing.T) {
 	for _, tc := range []struct {
 		name, setting string
+		driver        string
 		want          bool
 		invalid       bool
 	}{
+		{name: "PostgreSQL writable", driver: "postgres", setting: `,"readonly":false`, want: false},
+		{name: "PostgreSQL readonly", driver: "postgres", setting: `,"readonly":true`, want: true},
+		{name: "PostgreSQL default", driver: "postgres", want: true},
+		{name: "PostgreSQL null", driver: "postgres", setting: `,"readonly":null`, want: true},
 		{name: "true", setting: `,"readonly":true`, want: true},
 		{name: "false", setting: `,"readonly":false`, want: false},
 		{name: "missing", want: true},
@@ -25,7 +30,11 @@ func TestLoadConfiguredConnectionsReadonly(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			file := filepath.Join(t.TempDir(), "config.json")
-			config := `{"connections":[{"name":"Local","driver":"mysql","host":"127.0.0.1","port":3306,"user":"tester","database":"lab","password":"test-password"` + tc.setting + `}]}`
+			kind := tc.driver
+			if kind == "" {
+				kind = "mysql"
+			}
+			config := `{"connections":[{"name":"Local","driver":"` + kind + `","host":"127.0.0.1","port":3306,"user":"tester","database":"lab","password":"test-password"` + tc.setting + `}]}`
 			if err := os.WriteFile(file, []byte(config), 0600); err != nil {
 				t.Fatal(err)
 			}

@@ -516,7 +516,7 @@ func (a *app) loadConfiguredConnections() {
 		if !valid && (saved.Driver == "mysql" || saved.Driver == "postgres" || saved.Driver == "sqlite") {
 			problems = append(problems, "engine: must be compatible with driver")
 		}
-		readonly := saved.Driver == "postgres" || connectionReadonly(saved.Readonly)
+		readonly := connectionReadonly(saved.Readonly)
 		input := ConnectionInput{Name: saved.Name, Driver: ConnectionInputDriver(saved.Driver), Host: saved.Host,
 			Port: saved.Port, User: saved.User, Password: &saved.Password, Database: saved.Database, Readonly: &readonly}
 		name := strings.TrimSpace(saved.Name)

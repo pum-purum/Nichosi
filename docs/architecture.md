@@ -203,8 +203,9 @@ Result headers use an opaque sticky background so scrolling data remains below t
 Connection creation in `cmd/nichosi/connection_factory.go` dispatches to a
 creator for each database. Creators open and inspect the pool, closing it on
 failure; the shared profile factory assembles public metadata and normalized
-reconnect settings. PostgreSQL's current read-only profile policy stays in its
-creator. No global connection singleton is used: each application owns its
+reconnect settings. All drivers honor explicit `readonly: false`; omitted or null
+settings default to read-only. PostgreSQL grid editing remains unavailable independently
+of the connection setting. No global connection singleton is used: each application owns its
 profiles and each profile owns its pool.
 
 Row filters use a request-local builder in `internal/driver/row_filters.go`.

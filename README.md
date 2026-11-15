@@ -115,7 +115,9 @@ MariaDB also uses `"driver": "mysql"`; optionally add `"engine": "mariadb"`.
 For PostgreSQL, use `"driver": "postgres"` and the appropriate port (usually `5432`).
 Add more profiles to the `connections` array as needed.
 Connections default to read-only. Set `"readonly": false` explicitly to request
-editing where the driver supports it.
+editing where the driver supports it. PostgreSQL honors this setting for SQL console
+scripts; its grid remains read-only. Restart Nichosi after changing the connections
+configuration.
 
 **`compose.yaml`** — comments explain the settings:
 

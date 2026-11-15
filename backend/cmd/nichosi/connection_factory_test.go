@@ -16,6 +16,7 @@ func TestConnectedProfileMetadata(t *testing.T) {
 		wantReadonly              bool
 	}{
 		{"MySQL default", Mysql, "lab", "", "lab", nil, true},
+		{"PostgreSQL writable", Postgres, "lab", "", "lab", &writable, false},
 		{"PostgreSQL label", Postgres, "lab", "  Reports  ", "Reports", nil, true},
 		{"SQLite filename", Sqlite, "/tmp/demo.db", "", "demo.db", &writable, false},
 		{"SQLite label", Sqlite, "/tmp/demo.db", "  Local  ", "Local", nil, true},

@@ -65,9 +65,6 @@ func (a *app) openPostgresConnection(ctx context.Context, input ConnectionInput)
 	if err != nil {
 		return nil, err
 	}
-	// Grid editing is not supported for PostgreSQL profiles yet.
-	readonly := true
-	input.Readonly = &readonly
 	engine := ConnectionEnginePostgres
 	return newConnectedProfile(input, pool, size, &engine), nil
 }
