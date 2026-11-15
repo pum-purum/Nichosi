@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { draftValue, rowChanges, rowDeletion, insertionDraft } from './row-edit';
+import { draftValue, rowChanges, rowDeletion, insertionDraft, rowFieldErrors } from './row-edit';
 import type { components } from './api/schema';
 type Column = components['schemas']['Column'];
 const columns: Column[] = [
@@ -104,5 +104,22 @@ describe('record insertion', () => {
     const draft = insertionDraft(required);
     expect(draft[0].useDefault).toBe(false);
     expect(() => rowChanges(required, [], draft, [], true)).toThrow('integer');
+  });
+});
+
+describe('field validation', () => {
+  it('reports all invalid fields and clears corrected or defaulted values', () => {
+    const fields: Column[] = [
+      { name: 'artist_id', type: 'integer', nullable: false, primaryKey: false },
+      { name: 'release_year', type: 'integer', nullable: false, primaryKey: false },
+    ];
+    const draft = insertionDraft(fields);
+    expect(rowFieldErrors(fields, [], draft, true)).toEqual(['artist_id requires an integer.', 'release_year requires an integer.']);
+    draft[0].text = '12';
+    draft[1].useDefault = true;
+    expect(rowFieldErrors(fields, [], draft, true)).toEqual(['', '']);
+  });
+  it('ignores unchanged values when editing', () => {
+    expect(rowFieldErrors(columns, row, row.map(draftValue))).toEqual(['', '', '']);
   });
 });

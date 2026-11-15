@@ -115,7 +115,7 @@ are excluded; another usable key is selected when available.
 The editor requests a debounced preview from the backend and displays parameterized
 SQL together with the bound values. Only modified columns appear in SET; unchanged
 key columns may still appear in WHERE to identify the record. Apply is available
-only after the current changes have a successful preview. The backend validates
+for valid changes only after a successful current preview. Local field errors appear only after the first submission attempt, beside each invalid field, and update as values are corrected. Invalid forms keep the submit button available to reveal validation errors. The backend validates
 metadata again and applies the ChangeSet in one transaction with a ten-second
 timeout. Any failure rolls back the entire set. This flow supports inserts, updates and deletes. Add opens the same record editor with a new row. Default fields are omitted from INSERT, so database defaults (including NOW()/CURRENT_TIMESTAMP) are evaluated only at execution. Explicit NULL and empty strings remain distinct, and primary key values can be supplied through the API. The new-record form omits primary keys and shows a checked Next of sequence control for generated identities instead of a value input. Generated columns remain read-only.
 

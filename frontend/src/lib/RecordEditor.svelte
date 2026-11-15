@@ -4,7 +4,7 @@
   import { ArrowLeft, Save } from '@lucide/svelte';
   import { onDestroy } from 'svelte';
   import type { components } from './api/schema';
-  import { createChangeSetStore, draftValue, editableColumn, rowChanges, insertableColumn, insertionDraft } from './row-edit';
+  import { createChangeSetStore, draftValue, editableColumn, rowChanges, insertableColumn, insertionDraft, rowFieldErrors } from './row-edit';
   import { highlightSQL } from './sql-highlight';
 
   let { connectionId, table, columns, row, editKey, cancel, saved, inserting = false }: {
@@ -17,6 +17,8 @@
   let draft = $state(inserting ? insertionDraft(columns) : row.map(draftValue));
   let preview = $state<components['schemas']['ChangePreview'] | null>(null);
   let error = $state('');
+  let submitted = $state(false);
+  const fieldErrors = $derived(rowFieldErrors(columns, row, draft, inserting));
   let previewing = $state(false);
   let applying = $state(false);
   let revision = 0;
@@ -53,10 +55,12 @@
       }, 250);
     } catch (cause) {
       changeSet.set({ changes: [] });
-      error = cause instanceof Error ? cause.message : 'Invalid value';
+      if (!rowFieldErrors(columns, row, current, inserting).some(Boolean)) error = cause instanceof Error ? cause.message : 'Invalid value';
     }
   });
   async function apply() {
+    submitted = true;
+    if (fieldErrors.some(Boolean)) return;
     if (applying || previewing || !preview || previewRevision !== revision || !$changeSet.changes.length) return;
     applying = true; error = '';
     try {
@@ -77,11 +81,13 @@
           {#if inserting && column.primaryKey}
             <div class="field-value sequence-value">
               <label class="null-toggle"><input type="checkbox" checked disabled />{column.autoIncrement ? 'Next of sequence' : 'Default'}</label>
+              {#if submitted && fieldErrors[index]}<p class="field-error" id={`record-error-${index}`} role="alert">{fieldErrors[index]}</p>{/if}
             </div>
             <div class="field-options"></div>
           {:else}
             <div class="field-value">
-              <textarea id={`record-field-${index}`} rows={1} bind:value={draft[index].text} disabled={(inserting && draft[index].useDefault) || draft[index].isNull || !(inserting ? insertableColumn(column) : editableColumn(column, row[index]))} spellcheck="false" aria-label={`${column.name} value`}></textarea>
+              <textarea id={`record-field-${index}`} rows={1} bind:value={draft[index].text} disabled={(inserting && draft[index].useDefault) || draft[index].isNull || !(inserting ? insertableColumn(column) : editableColumn(column, row[index]))} spellcheck="false" aria-invalid={submitted && !!fieldErrors[index]} aria-describedby={submitted && fieldErrors[index] ? `record-error-${index}` : undefined} aria-label={`${column.name} value`}></textarea>
+              {#if submitted && fieldErrors[index]}<p class="field-error" id={`record-error-${index}`} role="alert">{fieldErrors[index]}</p>{/if}
             </div>
             <div class="field-options">
               {#if inserting}<label class="null-toggle"><input type="checkbox" bind:checked={draft[index].useDefault} disabled={!insertableColumn(column)} />Default</label>{/if}
@@ -103,8 +109,8 @@
         {#each preview.warnings as warning}<p class="warning">{warning}</p>{/each}
       {/if}
     </section>
-    {#if error}<p class="edit-error" role="alert">{error}</p>{/if}
-    <footer><button type="button" onclick={cancel} disabled={applying}>Cancel</button><button class="toolbar-button toolbar-button-primary" type="submit" disabled={applying || previewing || !preview || !$changeSet.changes.length}><Save size={14} />{applying ? 'Applying…' : 'Apply changes'}</button></footer>
+    {#if submitted && error}<p class="edit-error" role="alert">{error}</p>{/if}
+    <footer><button type="button" onclick={cancel} disabled={applying}>Cancel</button><button class="toolbar-button toolbar-button-primary" type="submit" disabled={applying || previewing || (!error && !fieldErrors.some(Boolean) && (!preview || !$changeSet.changes.length))}><Save size={14} />{applying ? 'Applying…' : 'Apply changes'}</button></footer>
   </form>
 </section>
 
@@ -119,6 +125,8 @@
   .record-field { display: grid; grid-template-columns: minmax(140px, 220px) minmax(180px, 1fr) 80px 65px; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
   label { overflow-wrap: anywhere; font-size: 14px; } small { display: block; color: var(--muted); font: 12px var(--mono); margin-top: 5px; }
   textarea { width: 100%; min-height: 37px; resize: vertical; padding: 8px 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--text); font: 13px/1.5 var(--mono); }
+  textarea[aria-invalid="true"] { border-color: #f39b9b; }
+  .field-error { color: #f39b9b; margin: 6px 0 0; }
   textarea:disabled { opacity: .5; } .null-toggle { display: flex; align-items: center; gap: 6px; font: 12px var(--mono); } input { accent-color: var(--accent); }
   .sequence-value { display: flex; align-items: center; min-height: 37px; }
   .field-value { min-width: 0; } .field-options { display: grid; gap: 8px; }

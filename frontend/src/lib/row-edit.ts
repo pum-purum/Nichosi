@@ -11,6 +11,25 @@ export function draftValue(value: unknown): DraftValue {
 export function editableColumn(column: Column, value?: unknown): boolean {
   return !isBinaryValue(value) && !column.primaryKey && !column.generated && columnKind(column.type) !== 'binary';
 }
+export function fieldError(column: Column, after: DraftValue): string {
+  if (after.isNull) return column.nullable ? '' : `${column.name} cannot be NULL.`;
+  const kind = columnKind(column.type);
+  if (kind === 'integer' && !/^[+-]?\d+$/.test(after.text)) return `${column.name} requires an integer.`;
+  if (kind === 'decimal' && !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(after.text)) return `${column.name} requires a number.`;
+  if (kind === 'json') {
+    try { JSON.parse(after.text); } catch { return `${column.name} requires valid JSON.`; }
+  }
+  return '';
+}
+export function rowFieldErrors(columns: Column[], original: unknown[], draft: DraftValue[], insert = false): string[] {
+  return columns.map((column, index) => {
+    const after = draft[index];
+    if (insert ? !insertableColumn(column) || after.useDefault : !editableColumn(column, original[index])) return '';
+    const before = draftValue(original[index]);
+    if (!insert && before.isNull === after.isNull && (after.isNull || before.text === after.text)) return '';
+    return fieldError(column, after);
+  });
+}
 export function rowChanges(columns: Column[], original: unknown[], draft: DraftValue[], editKey: string[], insert = false): ChangeSet {
   const values: Record<string, unknown> = {};
   const key = insert ? undefined : rowKey(columns, original, editKey);
@@ -19,15 +38,8 @@ export function rowChanges(columns: Column[], original: unknown[], draft: DraftV
     const before = draftValue(original[index]);
     const after = draft[index];
     if (!insert && before.isNull === after.isNull && (after.isNull || before.text === after.text)) return;
-    if (after.isNull && !column.nullable) throw new Error(`${column.name} cannot be NULL.`);
-    if (!after.isNull) {
-      const kind = columnKind(column.type);
-      if (kind === 'integer' && !/^[+-]?\d+$/.test(after.text)) throw new Error(`${column.name} requires an integer.`);
-      if (kind === 'decimal' && !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(after.text)) throw new Error(`${column.name} requires a number.`);
-      if (kind === 'json') {
-        try { JSON.parse(after.text); } catch { throw new Error(`${column.name} requires valid JSON.`); }
-      }
-    }
+    const error = fieldError(column, after);
+    if (error) throw new Error(error);
     let value: unknown = after.isNull ? null : after.text;
     const kind = columnKind(column.type);
     // Go serializes MySQL DATE/DATETIME as RFC3339 in UTC. Keep fractional precision.
