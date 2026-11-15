@@ -120,3 +120,7 @@ The sidebar footer shows Connecting while opening a database, Connected with a g
 Connection failures from table, metadata, editing, history, and SQL console requests clear the sidebar connected indicator. Failed database operations check schema availability so ordinary SQL errors do not imply a lost connection. Cancelled requests do not change connection status.
 
 Database and table loading use a centered, animated three-bar preloader on a translucent grid overlay. Keep loading labels available to screen readers without visible placeholder text. Respect reduced-motion preferences with a static indicator.
+
+## Adding records
+
+Place Add beside Refresh in the table data toolbar. Open the existing record editor with New record as its heading. Display database-reported defaults inside the input fields, without evaluating them or adding captions below the inputs. Use Default controls for omitted fields. Primary keys have no value input; generated identities show a checked Next of sequence control, and other primary keys use their database default. Keep NULL separate from Default and literal input; generated and binary fields remain read-only. Show SQL preview before Apply changes. Add is disabled for read-only connections and tables without a usable key or transactional storage, and is absent for views.

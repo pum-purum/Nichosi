@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Plus, RefreshCw, SlidersHorizontal, X } from '@lucide/svelte';
   import { filterOperators, formatRowFilter, parseRowFilter, type RowFilter } from './row-filter';
-  let { columns, busy, apply, refresh, text = $bindable(''), appliedText = $bindable('') }: { columns: string[]; busy: boolean; apply: (filters: RowFilter[]) => void; refresh: () => void; text?: string; appliedText?: string } = $props();
+  let { columns, busy, apply, refresh, text = $bindable(''), appliedText = $bindable(''), add, addDisabled = false, addDisabledReason = '' }: { add?: () => void; addDisabled?: boolean; addDisabledReason?: string; columns: string[]; busy: boolean; apply: (filters: RowFilter[]) => void; refresh: () => void; text?: string; appliedText?: string } = $props();
   let expanded = $state(false);
   const parsed = $derived.by(() => {
     try { return { filters: parseRowFilter(text, columns), error: '' }; }
@@ -9,7 +9,7 @@
   });
   function update(filters: RowFilter[]) { text = formatRowFilter(filters); }
   function change(index: number, patch: Partial<RowFilter>) { update(parsed.filters.map((filter, i) => i === index ? { ...filter, ...patch } : filter)); }
-  function add(connector: 'and' | 'or') {
+  function addFilter(connector: 'and' | 'or') {
     if (parsed.error || !columns.length || parsed.filters.length >= 100) return;
     update([...parsed.filters, { column: columns[0], op: 'eq', value: '', connector }]); expanded = true;
   }
@@ -26,6 +26,7 @@
 
 <form class="row-filter" onsubmit={(event) => { event.preventDefault(); submit(); }}>
   <div class="row-filter-bar">
+    {#if add}<button class="toolbar-button" type="button" disabled={busy || addDisabled} onclick={add} title={addDisabledReason || "Add record"}><Plus size={15} /><span>Add</span></button>{/if}
     <button type="button" aria-label="Refresh data" title="Refresh data" disabled={busy} onclick={refresh}><RefreshCw size={15} /><span>Refresh</span></button>
     <button type="button" class:active={expanded} aria-expanded={expanded} title="Show filter builder" onclick={() => expanded = !expanded}><SlidersHorizontal size={15} /><span>Filter</span></button>
     <input class="filter-expression" aria-label="Row filter expression" aria-invalid={!!parsed.error} aria-describedby="row-filter-help row-filter-error" placeholder={'Choose conditions or type: `id` >= 10 OR `name` LIKE "Ann%"'} bind:value={text} spellcheck="false" autocomplete="off" />
@@ -47,7 +48,7 @@
           <button type="button" aria-label={`Remove condition ${index + 1}`} title="Remove condition" onclick={() => update(parsed.filters.filter((_, i) => i !== index))}><X size={14} /></button>
         </div>
       {/each}
-      <div class="filter-builder-actions"><button type="button" disabled={!!parsed.error || !columns.length || parsed.filters.length >= 100} onclick={() => add('and')}><Plus size={14} />{parsed.filters.length ? 'AND condition' : 'Add condition'}</button>{#if parsed.filters.length}<button type="button" disabled={!!parsed.error || parsed.filters.length >= 100} onclick={() => add('or')}><Plus size={14} />OR condition</button>{/if}</div>
+      <div class="filter-builder-actions"><button type="button" disabled={!!parsed.error || !columns.length || parsed.filters.length >= 100} onclick={() => addFilter('and')}><Plus size={14} />{parsed.filters.length ? 'AND condition' : 'Add condition'}</button>{#if parsed.filters.length}<button type="button" disabled={!!parsed.error || parsed.filters.length >= 100} onclick={() => addFilter('or')}><Plus size={14} />OR condition</button>{/if}</div>
     </div>
   {/if}
   {#if parsed.error}<p class="filter-error" id="row-filter-error" role="alert">{parsed.error}</p>{:else}<span id="row-filter-error"></span>{/if}

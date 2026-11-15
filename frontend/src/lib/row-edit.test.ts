@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { draftValue, rowChanges, rowDeletion } from './row-edit';
+import { draftValue, rowChanges, rowDeletion, insertionDraft } from './row-edit';
 import type { components } from './api/schema';
 type Column = components['schemas']['Column'];
 const columns: Column[] = [
@@ -65,3 +65,36 @@ describe('record deletion', () => {
    const draft = original.map(draftValue); draft[1].text = 'changed';
    expect(rowChanges(columns, original, draft, ['id'])).toEqual({ changes: [] });
  });
+
+
+describe('record insertion', () => {
+  const insertColumns: Column[] = [
+    { name: 'id', type: 'bigint', primaryKey: true, nullable: false, autoIncrement: true },
+    { name: 'created', type: 'timestamp', primaryKey: false, nullable: false, defaultValue: 'NOW()' },
+    { name: 'name', type: 'text', primaryKey: false, nullable: true },
+    { name: 'computed', type: 'int', primaryKey: false, nullable: false, generated: true },
+  ];
+  it('omits defaults and generated columns without evaluating expressions', () => {
+    const draft = insertionDraft(insertColumns);
+    expect(draft[1].text).toBe('NOW()');
+    const nullableDefault = insertionDraft([{ ...insertColumns[1], nullable: true }]);
+    expect(nullableDefault[0].isNull).toBe(false);
+    expect(rowChanges(insertColumns, [], draft, [], true)).toEqual({ changes: [{ op: 'insert', values: {} }] });
+  });
+  it('accepts explicit primary keys, NULL, empty strings and literal function text', () => {
+    const draft = insertionDraft(insertColumns);
+    draft[0] = { text: '9007199254740993', isNull: false, useDefault: false };
+    draft[2] = { text: '', isNull: false, useDefault: false };
+    expect(rowChanges(insertColumns, [], draft, [], true).changes[0].values).toEqual({ id: '9007199254740993', name: '' });
+    draft[2].isNull = true;
+    expect(rowChanges(insertColumns, [], draft, [], true).changes[0].values?.name).toBeNull();
+    draft[2] = { text: 'NOW()', isNull: false, useDefault: false };
+    expect(rowChanges(insertColumns, [], draft, [], true).changes[0].values?.name).toBe('NOW()');
+  });
+  it('validates required numeric input and keeps required fields editable initially', () => {
+    const required = [{ ...insertColumns[0], primaryKey: false, autoIncrement: false }];
+    const draft = insertionDraft(required);
+    expect(draft[0].useDefault).toBe(false);
+    expect(() => rowChanges(required, [], draft, [], true)).toThrow('integer');
+  });
+});

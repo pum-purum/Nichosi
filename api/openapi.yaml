@@ -223,7 +223,7 @@ paths:
   /api/connections/{connId}/tables/{table}/changes/preview:
     post:
       operationId: previewChanges
-      description: Validates update and delete changes against table metadata. SQL uses placeholders; parameters are returned separately. Only changed columns belong in update values; deletes contain the original row key and no values.
+      description: Validates insert, update and delete changes against table metadata. Omitted insert columns use database defaults at execution time. SQL uses placeholders; parameters are returned separately. Only changed columns belong in update values; deletes contain the original row key and no values.
       parameters:
         - { $ref: "#/components/parameters/ConnId" }
         - { $ref: "#/components/parameters/Table" }
@@ -242,7 +242,7 @@ paths:
   /api/connections/{connId}/tables/{table}/changes/apply:
     post:
       operationId: applyChanges
-      description: Applies update and delete changes in one transaction with a ten-second timeout; rolls back on any error or when a key does not match exactly one row. Read-only connections and tables without a usable primary or non-null unique key are rejected. MySQL tables require InnoDB storage; SQLite changes use its native transactions.
+      description: Applies insert, update and delete changes in one transaction with a ten-second timeout; rolls back on any error or when a key does not match exactly one row. Read-only connections and tables without a usable primary or non-null unique key are rejected. MySQL tables require InnoDB storage; SQLite changes use its native transactions.
       parameters:
         - { $ref: "#/components/parameters/ConnId" }
         - { $ref: "#/components/parameters/Table" }
@@ -404,6 +404,12 @@ components:
         generated:
           type: boolean
           description: Generated columns are displayed but cannot be edited.
+        defaultValue:
+          type: string
+          description: Database-reported default value or expression for display only; never evaluated by the client.
+        autoIncrement:
+          type: boolean
+          description: Database generates an identity when the column is omitted on insert.
         foreignKey:
           allOf: [ { $ref: "#/components/schemas/ForeignRef" } ]
           nullable: true
@@ -552,7 +558,7 @@ components:
           additionalProperties: {}
         values:
           type: object
-          description: Column to new value (insert and update). For updates, include only modified columns. Primary key columns cannot be updated.
+          description: Column to new value (insert and update). For updates, include only modified columns. Primary key columns cannot be updated. Inserts accept primary key values and no key; omitted columns use database defaults, including server-evaluated expressions. An empty insert values object uses all defaults.
           additionalProperties: {}
     ChangeSet:
       type: object

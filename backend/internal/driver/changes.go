@@ -18,6 +18,8 @@ var ErrRowConflict = errors.New("row no longer exists or key is not unique")
 type EditColumn struct {
 	Nullable, Generated, PrimaryKey bool
 	Type                            string
+	DefaultValue                    *string
+	AutoIncrement                   bool
 }
 type EditMetadata struct {
 	Columns map[string]EditColumn
@@ -30,6 +32,7 @@ type RowChange struct {
 type UpdateStatement struct {
 	SQL           string
 	Parameters    []any
+	insert        bool
 	where         string
 	keyParameters []any
 }
@@ -48,17 +51,18 @@ func MySQLEditMetadata(ctx context.Context, db *sql.DB, database, table string) 
 	if !strings.EqualFold(engine, "InnoDB") {
 		return m, ErrReadOnlyTable
 	}
-	rows, err := db.QueryContext(ctx, "SELECT COLUMN_NAME, IS_NULLABLE, EXTRA, DATA_TYPE FROM information_schema.columns WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION LIMIT 1001", database, table)
+	rows, err := db.QueryContext(ctx, "SELECT COLUMN_NAME, IS_NULLABLE, EXTRA, DATA_TYPE, COLUMN_DEFAULT FROM information_schema.columns WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION LIMIT 1001", database, table)
 	if err != nil {
 		return m, err
 	}
 	for rows.Next() {
 		var name, nullable, extra, dataType string
-		if err = rows.Scan(&name, &nullable, &extra, &dataType); err != nil {
+		var defaultValue *string
+		if err = rows.Scan(&name, &nullable, &extra, &dataType, &defaultValue); err != nil {
 			rows.Close()
 			return m, err
 		}
-		m.Columns[name] = EditColumn{Nullable: nullable == "YES", Generated: strings.Contains(strings.ToUpper(extra), "VIRTUAL GENERATED") || strings.Contains(strings.ToUpper(extra), "STORED GENERATED") || strings.Contains(strings.ToUpper(extra), "PERSISTENT GENERATED"), Type: dataType}
+		m.Columns[name] = EditColumn{Nullable: nullable == "YES", Generated: strings.Contains(strings.ToUpper(extra), "VIRTUAL GENERATED") || strings.Contains(strings.ToUpper(extra), "STORED GENERATED") || strings.Contains(strings.ToUpper(extra), "PERSISTENT GENERATED"), Type: dataType, DefaultValue: defaultValue, AutoIncrement: strings.Contains(strings.ToLower(extra), "auto_increment")}
 	}
 	err = rows.Err()
 	rows.Close()
@@ -142,13 +146,50 @@ func changeValue(value any, column EditColumn) (any, error) {
 	}
 }
 
-// BuildUpdates builds updates and deletes with identifiers validated against metadata.
+// BuildUpdates builds MySQL changes with identifiers validated against metadata.
 func BuildUpdates(database, table string, metadata EditMetadata, changes []RowChange) ([]UpdateStatement, error) {
+	return BuildChanges(database, table, metadata, changes, "mysql")
+}
+
+func BuildChanges(database, table string, metadata EditMetadata, changes []RowChange, dialect string) ([]UpdateStatement, error) {
 	if len(changes) == 0 || len(changes) > 100 || len(metadata.Key) == 0 {
 		return nil, ErrInvalidChange
 	}
 	statements := make([]UpdateStatement, 0, len(changes))
 	for _, change := range changes {
+		if change.Op == "insert" {
+			if len(change.Key) != 0 {
+				return nil, ErrInvalidChange
+			}
+			names := make([]string, 0, len(change.Values))
+			for name := range change.Values {
+				names = append(names, name)
+			}
+			sort.Strings(names)
+			statement := UpdateStatement{insert: true, Parameters: []any{}}
+			quoted, placeholders := []string{}, []string{}
+			for _, name := range names {
+				column, ok := metadata.Columns[name]
+				if !ok || column.Generated || (change.Values[name] == nil && !column.Nullable) {
+					return nil, ErrInvalidChange
+				}
+				value, err := changeValue(change.Values[name], column)
+				if err != nil {
+					return nil, err
+				}
+				quoted = append(quoted, QuoteIdent(name))
+				placeholders = append(placeholders, "?")
+				statement.Parameters = append(statement.Parameters, value)
+			}
+			target := QuoteIdent(database) + "." + QuoteIdent(table)
+			if len(names) == 0 && dialect == "sqlite" {
+				statement.SQL = "INSERT INTO " + target + " DEFAULT VALUES;"
+			} else {
+				statement.SQL = "INSERT INTO " + target + " (" + strings.Join(quoted, ", ") + ") VALUES (" + strings.Join(placeholders, ", ") + ");"
+			}
+			statements = append(statements, statement)
+			continue
+		}
 		if (change.Op != "update" && change.Op != "delete") ||
 			(change.Op == "update" && len(change.Values) == 0) ||
 			(change.Op == "delete" && len(change.Values) != 0) || len(change.Key) != len(metadata.Key) {
@@ -205,6 +246,20 @@ func MySQLApplyUpdates(ctx context.Context, db *sql.DB, database, table string, 
 	}
 	defer tx.Rollback()
 	for _, statement := range statements {
+		if statement.insert {
+			result, err := tx.ExecContext(ctx, statement.SQL, statement.Parameters...)
+			if err != nil {
+				return 0, err
+			}
+			n, err := result.RowsAffected()
+			if err != nil {
+				return 0, err
+			}
+			if n != 1 {
+				return 0, ErrRowConflict
+			}
+			continue
+		}
 		// Lock and verify the original key first: RowsAffected may be zero for a no-op update.
 		rows, err := tx.QueryContext(ctx, "SELECT 1 FROM "+QuoteIdent(database)+"."+QuoteIdent(table)+" WHERE "+statement.where+" LIMIT 2 FOR UPDATE", statement.keyParameters...)
 		if err != nil {

@@ -112,7 +112,7 @@ SQL together with the bound values. Only modified columns appear in SET; unchang
 key columns may still appear in WHERE to identify the record. Apply is available
 only after the current changes have a successful preview. The backend validates
 metadata again and applies the ChangeSet in one transaction with a ten-second
-timeout. Any failure rolls back the entire set. This flow supports updates and deletes; inserts are not implemented.
+timeout. Any failure rolls back the entire set. This flow supports inserts, updates and deletes. Add opens the same record editor with a new row. Default fields are omitted from INSERT, so database defaults (including NOW()/CURRENT_TIMESTAMP) are evaluated only at execution. Explicit NULL and empty strings remain distinct, and primary key values can be supplied through the API. The new-record form omits primary keys and shows a checked Next of sequence control for generated identities instead of a value input. Generated columns remain read-only.
 
 The row trash button opens a modal confirmation showing every column of the original
 record and a parameterized SQL preview. Cancel is initially focused; Escape cancels
@@ -131,7 +131,7 @@ are never created by a connection request. Foreign key enforcement is enabled.
 The object browser exposes tables, views, indexes and triggers. Stored definitions
 retain SQLite syntax. Pages use bounded parameterized filters, ordering and a
 request timeout. Tables with a usable primary or non-null unique key support
-ChangeSet preview and transactional updates/deletes; keyless tables and views
+ChangeSet preview and transactional inserts/updates/deletes; keyless tables and views
 remain read-only. The default Compose configuration mounts an existing SQLite demo volume.
 Demo data was populated once; startup does not seed or recreate the database.
 
@@ -211,3 +211,5 @@ Row filters use a request-local builder in `internal/driver/row_filters.go`.
 It validates columns and predicates, quotes identifiers with the selected dialect,
 and owns bound values and placeholder numbering for the entire WHERE clause.
 The existing filter functions remain the entry points for all three dialects.
+
+ChangeSet preview and apply return database driver diagnostics directly, preserving line breaks and redacting connection passwords and DSNs with the same rules as the SQL console. Local validation and row conflict errors retain their specific messages.

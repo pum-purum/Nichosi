@@ -118,7 +118,7 @@ type Change struct {
 	Key *map[string]interface{} `json:"key,omitempty"`
 	Op  ChangeOp                `json:"op"`
 
-	// Values Column to new value (insert and update). For updates, include only modified columns. Primary key columns cannot be updated.
+	// Values Column to new value (insert and update). For updates, include only modified columns. Primary key columns cannot be updated. Inserts accept primary key values and no key; omitted columns use database defaults, including server-evaluated expressions. An empty insert values object uses all defaults.
 	Values *map[string]interface{} `json:"values,omitempty"`
 }
 
@@ -140,7 +140,12 @@ type ChangeSet struct {
 
 // Column defines model for Column.
 type Column struct {
-	ForeignKey *ForeignRef `json:"foreignKey"`
+	// AutoIncrement Database generates an identity when the column is omitted on insert.
+	AutoIncrement *bool `json:"autoIncrement,omitempty"`
+
+	// DefaultValue Database-reported default value or expression for display only; never evaluated by the client.
+	DefaultValue *string     `json:"defaultValue,omitempty"`
+	ForeignKey   *ForeignRef `json:"foreignKey"`
 
 	// Generated Generated columns are displayed but cannot be edited.
 	Generated  *bool  `json:"generated,omitempty"`

@@ -212,7 +212,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Validates update and delete changes against table metadata. SQL uses placeholders; parameters are returned separately. Only changed columns belong in update values; deletes contain the original row key and no values. */
+        /** @description Validates insert, update and delete changes against table metadata. Omitted insert columns use database defaults at execution time. SQL uses placeholders; parameters are returned separately. Only changed columns belong in update values; deletes contain the original row key and no values. */
         post: operations["previewChanges"];
         delete?: never;
         options?: never;
@@ -229,7 +229,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Applies update and delete changes in one transaction with a ten-second timeout; rolls back on any error or when a key does not match exactly one row. Read-only connections and tables without a usable primary or non-null unique key are rejected. MySQL tables require InnoDB storage; SQLite changes use its native transactions. */
+        /** @description Applies insert, update and delete changes in one transaction with a ten-second timeout; rolls back on any error or when a key does not match exactly one row. Read-only connections and tables without a usable primary or non-null unique key are rejected. MySQL tables require InnoDB storage; SQLite changes use its native transactions. */
         post: operations["applyChanges"];
         delete?: never;
         options?: never;
@@ -394,6 +394,10 @@ export interface components {
             primaryKey: boolean;
             /** @description Generated columns are displayed but cannot be edited. */
             generated?: boolean;
+            /** @description Database-reported default value or expression for display only; never evaluated by the client. */
+            defaultValue?: string;
+            /** @description Database generates an identity when the column is omitted on insert. */
+            autoIncrement?: boolean;
             foreignKey?: components["schemas"]["ForeignRef"] | null;
         };
         TableMetadata: {
@@ -512,7 +516,7 @@ export interface components {
             key?: {
                 [key: string]: unknown;
             };
-            /** @description Column to new value (insert and update). For updates, include only modified columns. Primary key columns cannot be updated. */
+            /** @description Column to new value (insert and update). For updates, include only modified columns. Primary key columns cannot be updated. Inserts accept primary key values and no key; omitted columns use database defaults, including server-evaluated expressions. An empty insert values object uses all defaults. */
             values?: {
                 [key: string]: unknown;
             };

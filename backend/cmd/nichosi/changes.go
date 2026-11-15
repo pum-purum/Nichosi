@@ -51,7 +51,7 @@ func (a *app) changeRows(w http.ResponseWriter, r *http.Request, apply bool) {
 	table := r.PathValue("table")
 	metadata, err := editMetadata(ctx, item, table)
 	if err != nil {
-		writeChangeError(w, err)
+		writeChangeError(w, err, item.input.Password)
 		return
 	}
 	updates := make([]driver.RowChange, 0, len(changes.Changes))
@@ -69,9 +69,9 @@ func (a *app) changeRows(w http.ResponseWriter, r *http.Request, apply bool) {
 	if item.Driver == ConnectionDriverSqlite {
 		database = "main"
 	}
-	statements, err := driver.BuildUpdates(database, table, metadata, updates)
+	statements, err := driver.BuildChanges(database, table, metadata, updates, string(item.Driver))
 	if err != nil {
-		writeChangeError(w, err)
+		writeChangeError(w, err, item.input.Password)
 		return
 	}
 	if !apply {
@@ -92,12 +92,12 @@ func (a *app) changeRows(w http.ResponseWriter, r *http.Request, apply bool) {
 		applied, err = driver.MySQLApplyUpdates(ctx, item.pool, item.Database, table, statements)
 	}
 	if err != nil {
-		writeChangeError(w, err)
+		writeChangeError(w, err, item.input.Password)
 		return
 	}
 	writeJSON(w, 200, ApplyResult{Applied: applied, RolledBack: false})
 }
-func writeChangeError(w http.ResponseWriter, err error) {
+func writeChangeError(w http.ResponseWriter, err error, password *string) {
 	switch {
 	case errors.Is(err, driver.ErrRowsObjectNotFound):
 		writeError(w, 404, "table_not_found", "Table not found")
@@ -108,6 +108,6 @@ func writeChangeError(w http.ResponseWriter, err error) {
 	case errors.Is(err, driver.ErrRowConflict):
 		writeError(w, 409, "row_conflict", "The row no longer exists or its key is not unique; changes were rolled back")
 	default:
-		writeError(w, 502, "change_failed", "Could not confirm changes. Reload the data before retrying.")
+		writeError(w, 502, "change_failed", redactScriptError(driver.ScriptErrorMessage(err), password))
 	}
 }

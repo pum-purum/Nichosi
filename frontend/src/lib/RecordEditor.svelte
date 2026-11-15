@@ -4,17 +4,17 @@
   import { ArrowLeft, Save } from '@lucide/svelte';
   import { onDestroy } from 'svelte';
   import type { components } from './api/schema';
-  import { createChangeSetStore, draftValue, editableColumn, rowChanges } from './row-edit';
+  import { createChangeSetStore, draftValue, editableColumn, rowChanges, insertableColumn, insertionDraft } from './row-edit';
   import { highlightSQL } from './sql-highlight';
 
-  let { connectionId, table, columns, row, editKey, cancel, saved }: {
+  let { connectionId, table, columns, row, editKey, cancel, saved, inserting = false }: {
     connectionId: string; table: string; columns: components['schemas']['Column'][]; row: unknown[]; editKey: string[];
-    cancel: () => void; saved: () => Promise<void>;
+    inserting?: boolean; cancel: () => void; saved: () => Promise<void>;
   } = $props();
   const changeSet = createChangeSetStore();
   // Each editor instance owns the original row snapshot.
   // svelte-ignore state_referenced_locally
-  let draft = $state(row.map(draftValue));
+  let draft = $state(inserting ? insertionDraft(columns) : row.map(draftValue));
   let preview = $state<components['schemas']['ChangePreview'] | null>(null);
   let error = $state('');
   let previewing = $state(false);
@@ -39,7 +39,7 @@
     clearTimeout(timer);
     preview = null; previewRevision = -1; error = ''; previewing = false;
     try {
-      const changes = rowChanges(columns, row, current, editKey);
+      const changes = rowChanges(columns, row, current, editKey, inserting);
       changeSet.set(changes);
       if (!changes.changes.length) return;
       previewing = true;
@@ -67,22 +67,34 @@
   }
 </script>
 
-<section class="record-editor" aria-label="Edit database record" aria-busy={applying}>
-  <header><button onclick={cancel} disabled={applying}><ArrowLeft size={14} />Back to data</button><h1>Edit record <span>{table}</span></h1></header>
+<section class="record-editor" aria-label={inserting ? "Add database record" : "Edit database record"} aria-busy={applying}>
+  <header><button onclick={cancel} disabled={applying}><ArrowLeft size={14} />Back to data</button><h1>{inserting ? 'New record' : 'Edit record'} <span>{table}</span></h1></header>
   <form onsubmit={(event) => { event.preventDefault(); void apply(); }}>
     <fieldset disabled={applying}>
       {#each columns as column, index}
         <div class="record-field">
-          <label for={`record-field-${index}`}>{column.name}<small>{column.type}{editKey.includes(column.name) ? ' · Row key' : ''}{column.primaryKey ? ' · Read-only primary key' : ''}{column.generated ? ' · Generated' : ''}{!column.primaryKey && !column.generated && !editableColumn(column, row[index]) ? ' · Read-only binary value' : ''}</small></label>
-          <textarea id={`record-field-${index}`} rows={1} bind:value={draft[index].text} disabled={draft[index].isNull || !editableColumn(column, row[index])} spellcheck="false" aria-label={`${column.name} value`}></textarea>
-          {#if column.nullable}<label class="null-toggle"><input type="checkbox" bind:checked={draft[index].isNull} disabled={!editableColumn(column, row[index])} />NULL</label>{:else}<span class="required">Required</span>{/if}
-          {#if editableColumn(column, row[index]) && (draft[index].isNull !== (row[index] === null) || (!draft[index].isNull && draft[index].text !== draftValue(row[index]).text))}<span class="modified">Modified</span>{/if}
+          <label for={inserting && column.primaryKey ? undefined : `record-field-${index}`}>{column.name}<small>{column.type}{editKey.includes(column.name) ? ' · Row key' : ''}{column.primaryKey ? inserting ? ' · Primary key' : ' · Read-only primary key' : ''}{inserting && column.autoIncrement ? ' · Auto increment' : ''}{column.generated ? ' · Generated' : ''}{!column.primaryKey && !column.generated && !(inserting ? insertableColumn(column) : editableColumn(column, row[index])) ? ' · Read-only binary value' : ''}</small></label>
+          {#if inserting && column.primaryKey}
+            <div class="field-value sequence-value">
+              <label class="null-toggle"><input type="checkbox" checked disabled />{column.autoIncrement ? 'Next of sequence' : 'Default'}</label>
+            </div>
+            <div class="field-options"></div>
+          {:else}
+            <div class="field-value">
+              <textarea id={`record-field-${index}`} rows={1} bind:value={draft[index].text} disabled={(inserting && draft[index].useDefault) || draft[index].isNull || !(inserting ? insertableColumn(column) : editableColumn(column, row[index]))} spellcheck="false" aria-label={`${column.name} value`}></textarea>
+            </div>
+            <div class="field-options">
+              {#if inserting}<label class="null-toggle"><input type="checkbox" bind:checked={draft[index].useDefault} disabled={!insertableColumn(column)} />Default</label>{/if}
+              {#if column.nullable}<label class="null-toggle"><input type="checkbox" bind:checked={draft[index].isNull} disabled={(inserting && draft[index].useDefault) || !(inserting ? insertableColumn(column) : editableColumn(column, row[index]))} />NULL</label>{:else if !inserting || !draft[index].useDefault}<span class="required">Required</span>{/if}
+            </div>
+          {/if}
+          {#if !inserting && editableColumn(column, row[index]) && (draft[index].isNull !== (row[index] === null) || (!draft[index].isNull && draft[index].text !== draftValue(row[index]).text))}<span class="modified">Modified</span>{/if}
         </div>
       {/each}
     </fieldset>
     <section class="sql-preview" aria-label="SQL preview">
       <h2>SQL preview</h2>
-      <p role="status">{previewing ? 'Updating preview…' : !$changeSet.changes.length ? 'Edit a value to preview the update.' : 'Only modified columns are included. Row key values identify the record.'}</p>
+      <p role="status">{previewing ? 'Updating preview…' : inserting ? 'Default fields are omitted. The database evaluates defaults when changes are applied.' : !$changeSet.changes.length ? 'Edit a value to preview the update.' : 'Only modified columns are included. Row key values identify the record.'}</p>
       {#if preview}
         {#each preview.statements as statement, index}
           <pre><code>{@html highlightSQL(statement)}</code></pre>
@@ -92,7 +104,7 @@
       {/if}
     </section>
     {#if error}<p class="edit-error" role="alert">{error}</p>{/if}
-    <footer><button type="button" onclick={cancel} disabled={applying}>Cancel</button><button class="apply" type="submit" disabled={applying || previewing || !preview || !$changeSet.changes.length}><Save size={14} />{applying ? 'Applying…' : 'Apply changes'}</button></footer>
+    <footer><button type="button" onclick={cancel} disabled={applying}>Cancel</button><button class="toolbar-button toolbar-button-primary" type="submit" disabled={applying || previewing || !preview || !$changeSet.changes.length}><Save size={14} />{applying ? 'Applying…' : 'Apply changes'}</button></footer>
   </form>
 </section>
 
@@ -108,11 +120,13 @@
   label { overflow-wrap: anywhere; font-size: 14px; } small { display: block; color: var(--muted); font: 12px var(--mono); margin-top: 5px; }
   textarea { width: 100%; min-height: 37px; resize: vertical; padding: 8px 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--text); font: 13px/1.5 var(--mono); }
   textarea:disabled { opacity: .5; } .null-toggle { display: flex; align-items: center; gap: 6px; font: 12px var(--mono); } input { accent-color: var(--accent); }
+  .sequence-value { display: flex; align-items: center; min-height: 37px; }
+  .field-value { min-width: 0; } .field-options { display: grid; gap: 8px; }
   .required { color: var(--dim); font-size: 12px; } .modified { color: var(--accent); font-size: 12px; }
   .sql-preview { margin-top: 28px; } h2 { font-size: 14px; } p { color: var(--muted); font-size: 13px; }
   pre { overflow: auto; padding: 16px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); font: 13px/1.65 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
   code { font: inherit; } code :global(.hljs-keyword) { color: var(--sql-keyword); } code :global(.hljs-string) { color: var(--sql-string); } code :global(.hljs-number) { color: var(--sql-number); }
   .parameter-label { margin-bottom: 6px; } .parameters { margin-top: 0; color: var(--muted); } .warning { color: #e7ca8c; } .edit-error { color: #f39b9b; }
-  footer { display: flex; justify-content: flex-end; gap: 12px; padding: 20px 0; } .apply { color: #131a10; background: var(--accent); border-color: var(--accent); }
+  footer { display: flex; justify-content: flex-end; gap: 12px; padding: 20px 0; }
   @media (max-width: 800px) { .record-editor { padding: 16px; } .record-field { grid-template-columns: 1fr 80px; } .record-field > label:first-child { grid-column: 1 / -1; } .modified { grid-column: 1 / -1; } }
 </style>

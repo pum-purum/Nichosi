@@ -240,7 +240,7 @@ func SQLiteEditMetadata(ctx context.Context, db *sql.DB, table string) (EditMeta
 	if strings.HasPrefix(strings.ToUpper(strings.TrimSpace(definition)), "CREATE VIRTUAL TABLE") {
 		return m, ErrReadOnlyTable
 	}
-	rows, err := db.QueryContext(ctx, `SELECT name,type,"notnull",pk,hidden FROM pragma_table_xinfo(?) ORDER BY pk,cid LIMIT 1001`, table)
+	rows, err := db.QueryContext(ctx, `SELECT name,type,"notnull",pk,hidden,dflt_value FROM pragma_table_xinfo(?) ORDER BY pk,cid LIMIT 1001`, table)
 	if err != nil {
 		return m, err
 	}
@@ -248,13 +248,14 @@ func SQLiteEditMetadata(ctx context.Context, db *sql.DB, table string) (EditMeta
 	for rows.Next() {
 		var name, typ string
 		var nn, pk, hidden int
-		if err := rows.Scan(&name, &typ, &nn, &pk, &hidden); err != nil {
+		var defaultValue *string
+		if err := rows.Scan(&name, &typ, &nn, &pk, &hidden, &defaultValue); err != nil {
 			rows.Close()
 			return m, err
 		}
 		nullable := nn == 0
 
-		m.Columns[name] = EditColumn{Nullable: nullable, Generated: hidden != 0, PrimaryKey: pk > 0, Type: typ}
+		m.Columns[name] = EditColumn{Nullable: nullable, Generated: hidden != 0, PrimaryKey: pk > 0, Type: typ, DefaultValue: defaultValue}
 		if pk > 0 {
 			primary = append(primary, name)
 		}
@@ -309,6 +310,7 @@ func SQLiteEditMetadata(ctx context.Context, db *sql.DB, table string) (EditMeta
 		c := m.Columns[name]
 		if strings.EqualFold(c.Type, "INTEGER") {
 			c.Nullable = false
+			c.AutoIncrement = true
 			m.Columns[name] = c
 		}
 	}

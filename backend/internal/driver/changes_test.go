@@ -34,7 +34,7 @@ func TestBuildUpdates(t *testing.T) {
 		{"delete missing key", RowChange{Op: "delete"}, true},
 		{"delete null key", RowChange{Op: "delete", Key: map[string]any{"id": nil}}, true},
 		{"delete extra key", RowChange{Op: "delete", Key: map[string]any{"id": "1", "other": "x"}}, true},
-		{"insert", RowChange{Op: "insert", Values: map[string]any{"other": "x"}}, true},
+		{"insert with key", RowChange{Op: "insert", Key: map[string]any{"id": "1"}, Values: map[string]any{"other": "x"}}, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			statements, err := BuildUpdates("db`name", "table", metadata, []RowChange{tc.change})
@@ -164,7 +164,11 @@ func (c editMetadataConn) QueryContext(_ context.Context, q string, _ []sqldrive
 		return &editRows{columns: []string{"ENGINE"}, values: [][]sqldriver.Value{{c.c.engine}}}, nil
 	}
 	if strings.Contains(q, "information_schema.columns") {
-		return &editRows{columns: []string{"COLUMN_NAME", "IS_NULLABLE", "EXTRA", "DATA_TYPE"}, values: c.c.columns}, nil
+		values := make([][]sqldriver.Value, len(c.c.columns))
+		for i, row := range c.c.columns {
+			values[i] = append(append([]sqldriver.Value{}, row...), nil)
+		}
+		return &editRows{columns: []string{"COLUMN_NAME", "IS_NULLABLE", "EXTRA", "DATA_TYPE", "COLUMN_DEFAULT"}, values: values}, nil
 	}
 	return &editRows{columns: []string{"INDEX_NAME", "COLUMN_NAME", "SUB_PART"}, values: c.c.indexes}, nil
 }
@@ -305,5 +309,61 @@ func TestIntegerPreviewParameters(t *testing.T) {
 				t.Fatalf("parameters: %#v", statements[0].Parameters)
 			}
 		})
+	}
+}
+
+func TestInsertStatements(t *testing.T) {
+	metadata := EditMetadata{Columns: map[string]EditColumn{"id": {PrimaryKey: true}, "na`me": {Nullable: true}, "computed": {Generated: true}}, Key: []string{"id"}}
+	for _, tc := range []struct {
+		name, dialect string
+		values        map[string]any
+		sql           string
+		invalid       bool
+	}{
+		{"bound values", "mysql", map[string]any{"id": "9007199254740993", "na`me": "NOW(); DROP TABLE t"}, "INSERT INTO `db``name`.`table` (`id`, `na``me`) VALUES (?, ?);", false},
+		{"mysql defaults", "mysql", nil, "INSERT INTO `db``name`.`table` () VALUES ();", false},
+		{"sqlite defaults", "sqlite", nil, "INSERT INTO `db``name`.`table` DEFAULT VALUES;", false},
+		{"generated", "mysql", map[string]any{"computed": "x"}, "", true},
+		{"unknown", "mysql", map[string]any{"unknown": "x"}, "", true},
+		{"null key", "mysql", map[string]any{"id": nil}, "", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			statements, err := BuildChanges("db`name", "table", metadata, []RowChange{{Op: "insert", Values: tc.values}}, tc.dialect)
+			if tc.invalid {
+				if !errors.Is(err, ErrInvalidChange) {
+					t.Fatal(err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if statements[0].SQL != tc.sql {
+				t.Fatal(statements[0].SQL)
+			}
+			if tc.name == "bound values" && !reflect.DeepEqual(statements[0].Parameters, []any{"9007199254740993", "NOW(); DROP TABLE t"}) {
+				t.Fatal(statements[0].Parameters)
+			}
+		})
+	}
+}
+
+func TestMySQLInsertAtomicity(t *testing.T) {
+	for _, failAt := range []int{0, 2} {
+		c := &updateConnector{affected: 1, failAt: failAt}
+		db := sql.OpenDB(c)
+		statements := []UpdateStatement{{insert: true, SQL: "INSERT INTO `db`.`t` () VALUES ();"}, {insert: true, SQL: "INSERT INTO `db`.`t` () VALUES ();"}}
+		applied, err := MySQLApplyUpdates(context.Background(), db, "db", "t", statements)
+		db.Close()
+		if failAt == 0 {
+			if err != nil || applied != 2 || !c.committed {
+				t.Fatalf("%d %v %+v", applied, err, c)
+			}
+		} else if err == nil || applied != 0 || !c.rolledBack || c.committed {
+			t.Fatalf("%d %v %+v", applied, err, c)
+		}
+		if c.queries != 0 {
+			t.Fatal("inserts must not lock a nonexistent original row")
+		}
 	}
 }

@@ -465,6 +465,9 @@ func (a *app) queryObjectRows(w http.ResponseWriter, r *http.Request, view bool)
 			for i := range page.Columns {
 				generated := metadata.Columns[page.Columns[i].Name].Generated
 				page.Columns[i].Generated = &generated
+				column := metadata.Columns[page.Columns[i].Name]
+				page.Columns[i].DefaultValue = column.DefaultValue
+				page.Columns[i].AutoIncrement = &column.AutoIncrement
 			}
 			reason = ""
 		} else if errors.Is(editErr, driver.ErrReadOnlyTable) {

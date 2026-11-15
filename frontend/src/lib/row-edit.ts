@@ -4,21 +4,21 @@ import { columnKind, isBinaryValue } from './cell-value';
 
 type Column = components['schemas']['Column'];
 type ChangeSet = components['schemas']['ChangeSet'];
-export type DraftValue = { text: string; isNull: boolean };
+export type DraftValue = { text: string; isNull: boolean; useDefault?: boolean };
 export function draftValue(value: unknown): DraftValue {
   return { text: value === null ? '' : typeof value === 'object' ? JSON.stringify(value) : String(value), isNull: value === null };
 }
 export function editableColumn(column: Column, value?: unknown): boolean {
   return !isBinaryValue(value) && !column.primaryKey && !column.generated && columnKind(column.type) !== 'binary';
 }
-export function rowChanges(columns: Column[], original: unknown[], draft: DraftValue[], editKey: string[]): ChangeSet {
+export function rowChanges(columns: Column[], original: unknown[], draft: DraftValue[], editKey: string[], insert = false): ChangeSet {
   const values: Record<string, unknown> = {};
-  const key = rowKey(columns, original, editKey);
+  const key = insert ? undefined : rowKey(columns, original, editKey);
   columns.forEach((column, index) => {
-    if (!editableColumn(column, original[index])) return;
+    if (insert ? !insertableColumn(column) || draft[index].useDefault : !editableColumn(column, original[index])) return;
     const before = draftValue(original[index]);
     const after = draft[index];
-    if (before.isNull === after.isNull && (after.isNull || before.text === after.text)) return;
+    if (!insert && before.isNull === after.isNull && (after.isNull || before.text === after.text)) return;
     if (after.isNull && !column.nullable) throw new Error(`${column.name} cannot be NULL.`);
     if (!after.isNull) {
       const kind = columnKind(column.type);
@@ -37,7 +37,7 @@ export function rowChanges(columns: Column[], original: unknown[], draft: DraftV
     }
     Object.defineProperty(values, column.name, { value, enumerable: true });
   });
-  return { changes: Object.keys(values).length ? [{ op: 'update', key, values }] : [] };
+  return { changes: insert ? [{ op: 'insert', values }] : Object.keys(values).length ? [{ op: 'update', key, values }] : [] };
 }
 export function rowKey(columns: Column[], original: unknown[], editKey: string[]): Record<string, unknown> {
   const key: Record<string, unknown> = {};
@@ -55,3 +55,10 @@ export function rowDeletion(columns: Column[], original: unknown[], editKey: str
   return { changes: [{ op: 'delete', key: rowKey(columns, original, editKey) }] };
 }
 export function createChangeSetStore() { return writable<ChangeSet>({ changes: [] }); }
+
+export function insertableColumn(column: Column): boolean {
+  return !column.generated && columnKind(column.type) !== 'binary';
+}
+export function insertionDraft(columns: Column[]): DraftValue[] {
+  return columns.map(column => ({ text: column.defaultValue ?? '', isNull: column.nullable && column.defaultValue === undefined, useDefault: column.primaryKey || !!column.generated || !!column.autoIncrement || column.defaultValue !== undefined || column.nullable || !insertableColumn(column) }));
+}

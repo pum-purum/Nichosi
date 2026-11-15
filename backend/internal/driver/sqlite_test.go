@@ -226,3 +226,71 @@ func TestSQLiteTableSizes(t *testing.T) {
 		t.Fatal("view attributed table storage")
 	}
 }
+
+func TestSQLiteInsertDefaultsAndRollback(t *testing.T) {
+	db, _ := sqliteFixture(t)
+	ctx := context.Background()
+	if _, err := db.Exec(`CREATE TABLE defaults_test(id INTEGER PRIMARY KEY, created TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, label TEXT DEFAULT 'default label', computed TEXT GENERATED ALWAYS AS (label||label) STORED)`); err != nil {
+		t.Fatal(err)
+	}
+	metadata, err := SQLiteEditMetadata(ctx, db, "defaults_test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if metadata.Columns["created"].DefaultValue == nil || *metadata.Columns["created"].DefaultValue != "CURRENT_TIMESTAMP" || !metadata.Columns["id"].AutoIncrement {
+		t.Fatalf("%+v", metadata)
+	}
+	statements, err := BuildChanges("main", "defaults_test", metadata, []RowChange{{Op: "insert"}}, "sqlite")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var count int
+	if err := db.QueryRow("SELECT count(*) FROM defaults_test").Scan(&count); err != nil || count != 0 {
+		t.Fatal("preview executed insert", err)
+	}
+	if _, err := SQLiteApplyUpdates(ctx, db, statements); err != nil {
+		t.Fatal(err)
+	}
+	var id int
+	var created, label, computed string
+	if err := db.QueryRow("SELECT id, created, label, computed FROM defaults_test").Scan(&id, &created, &label, &computed); err != nil {
+		t.Fatal(err)
+	}
+	if id != 1 || created == "" || created == "CURRENT_TIMESTAMP" || label != "default label" || computed != label+label {
+		t.Fatalf("%d %s %s %s", id, created, label, computed)
+	}
+	statements, err = BuildChanges("main", "defaults_test", metadata, []RowChange{{Op: "insert", Values: map[string]any{"id": "2", "label": nil}}, {Op: "insert", Values: map[string]any{"id": "1"}}}, "sqlite")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := SQLiteApplyUpdates(ctx, db, statements); err == nil {
+		t.Fatal("expected duplicate key failure")
+	}
+	if err := db.QueryRow("SELECT count(*) FROM defaults_test").Scan(&count); err != nil || count != 1 {
+		t.Fatal("insert did not roll back", count, err)
+	}
+}
+
+func TestSQLiteInsertIdentityMetadata(t *testing.T) {
+	db, _ := sqliteFixture(t)
+	for _, statement := range []string{
+		`CREATE TABLE composite_identity(a INTEGER NOT NULL, b INTEGER NOT NULL, PRIMARY KEY(a,b))`,
+		`CREATE TABLE descending_identity(a INTEGER PRIMARY KEY DESC NOT NULL, b TEXT)`,
+		`CREATE TABLE without_identity(a INTEGER PRIMARY KEY NOT NULL) WITHOUT ROWID`,
+	} {
+		if _, err := db.Exec(statement); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, table := range []string{"composite_identity", "descending_identity", "without_identity"} {
+		metadata, err := SQLiteEditMetadata(context.Background(), db, table)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for name, column := range metadata.Columns {
+			if column.AutoIncrement {
+				t.Fatalf("%s.%s is not a rowid alias", table, name)
+			}
+		}
+	}
+}
