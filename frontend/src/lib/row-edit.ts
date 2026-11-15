@@ -31,7 +31,8 @@ export function rowChanges(columns: Column[], original: unknown[], draft: DraftV
     let value: unknown = after.isNull ? null : after.text;
     const kind = columnKind(column.type);
     // Go serializes MySQL DATE/DATETIME as RFC3339 in UTC. Keep fractional precision.
-    if (!after.isNull && (kind === 'date' || kind === 'datetime')) {
+    const hasTimeZone = /\bwith time zone\b|^timestamptz\b/i.test(column.type);
+    if (!after.isNull && !hasTimeZone && (kind === 'date' || kind === 'datetime')) {
       const temporal = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2}(?:\.\d+)?)(?:Z|[+]00:00)$/.exec(after.text);
       if (temporal) value = kind === 'date' ? temporal[1] : `${temporal[1]} ${temporal[2]}`;
     }

@@ -40,6 +40,14 @@ describe('record changes', () => {
     const temporal = [{ ...columns[1], name: 'created', type: 'datetime(6)' }];
     expect(rowChanges(temporal, ['2026-01-01T00:00:00Z'], [{ text: '2026-02-01T12:13:14.123456Z', isNull: false }], ['created']).changes[0].values).toEqual({ created: '2026-02-01 12:13:14.123456' });
   });
+  it.each(['timestamp with time zone', 'timestamp(6) with time zone', 'timestamptz'])('preserves PostgreSQL timezone instants for %s', (type) => {
+    const temporal = [{ ...columns[1], name: 'created', type }];
+    for (const text of ['2026-02-01T12:13:14.123456Z', '2026-02-01T12:13:14+00:00', '2026-02-01T12:13:14+04:00']) {
+      const draft = [{ text, isNull: false, useDefault: false }];
+      expect(rowChanges(temporal, ['before'], draft, ['created']).changes[0].values).toEqual({ created: text });
+      expect(rowChanges(temporal, [], draft, [], true).changes[0].values).toEqual({ created: text });
+    }
+  });
   it('preserves column names that overlap object prototypes', () => {
     const unusual = [{ ...columns[1], name: '__proto__' }];
     const changes = rowChanges(unusual, ['before'], [{ text: 'after', isNull: false }], ['__proto__']);

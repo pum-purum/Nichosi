@@ -504,6 +504,7 @@ export interface components {
             nextCursor?: string | null;
             /** @description Ordered columns of a primary or non-null unique key used to identify edited rows. Binary, temporal, prefix, and functional keys are excluded. Empty for read-only sources. */
             editKey?: string[];
+            /** @description Whether grid ChangeSets are supported for this source. MySQL, PostgreSQL and SQLite tables require an explicitly writable connection and a usable primary or non-null unique key; views remain read-only. */
             editable: boolean;
             /** Format: int64 */
             totalRows: number;

@@ -49,8 +49,13 @@ parameterized SQL only; row limit and timeout on every UI query; audit log of wr
 ## PostgreSQL connections
 
 PostgreSQL profiles use `driver: "postgres"`. Local PostgreSQL connections currently
-use TLS disabled and support schema/data browsing. PostgreSQL grid ChangeSets
-are not yet available; the SQL console supports scripts on writable profiles. Keep this setup on a trusted local network.
+use TLS disabled and support schema/data browsing. Explicitly writable profiles
+support grid ChangeSets (inserts, updates and deletes) on tables with a usable
+primary or non-null unique key. Preview uses PostgreSQL identifiers and numbered
+parameters; apply runs the entire ChangeSet in one read-write transaction.
+Generated columns are read-only, and omitted insert fields use server defaults,
+including sequence and identity values. Views and keyless tables remain read-only.
+The SQL console also supports scripts on writable profiles. Keep this setup on a trusted local network.
 Tables and views are listed across accessible user schemas with qualified names
 such as `public.events`. Materialized views have their own category. The PostgreSQL
 object browser also lists PostgreSQL accounts together under Users: LOGIN roles
@@ -204,8 +209,8 @@ Connection creation in `cmd/nichosi/connection_factory.go` dispatches to a
 creator for each database. Creators open and inspect the pool, closing it on
 failure; the shared profile factory assembles public metadata and normalized
 reconnect settings. All drivers honor explicit `readonly: false`; omitted or null
-settings default to read-only. PostgreSQL grid editing remains unavailable independently
-of the connection setting. No global connection singleton is used: each application owns its
+settings default to read-only. Grid editing additionally requires usable table
+key metadata. No global connection singleton is used: each application owns its
 profiles and each profile owns its pool.
 
 Row filters use a request-local builder in `internal/driver/row_filters.go`.

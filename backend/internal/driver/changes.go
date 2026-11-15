@@ -24,6 +24,8 @@ type EditColumn struct {
 type EditMetadata struct {
 	Columns map[string]EditColumn
 	Key     []string
+	// source is a PostgreSQL relation quoted by the catalog, never request text.
+	source string
 }
 type RowChange struct {
 	Op          string
@@ -123,7 +125,7 @@ func MySQLEditMetadata(ctx context.Context, db *sql.DB, database, table string) 
 func changeValue(value any, column EditColumn) (any, error) {
 	// Preserve exact transport for integers outside JavaScript's safe range.
 	switch strings.ToLower(column.Type) {
-	case "tinyint", "smallint", "mediumint", "int", "integer", "bigint", "year":
+	case "tinyint", "smallint", "mediumint", "int", "integer", "bigint", "year", "int2", "int4", "int8":
 		var text string
 		switch v := value.(type) {
 		case string:
@@ -155,6 +157,15 @@ func BuildChanges(database, table string, metadata EditMetadata, changes []RowCh
 	if len(changes) == 0 || len(changes) > 100 || len(metadata.Key) == 0 {
 		return nil, ErrInvalidChange
 	}
+	quote, placeholder := QuoteIdent, func(int) string { return "?" }
+	target := quote(database) + "." + quote(table)
+	if dialect == "postgres" {
+		if metadata.source == "" {
+			return nil, ErrInvalidChange
+		}
+		quote, placeholder = PostgresQuoteIdent, pgPlaceholder
+		target = metadata.source
+	}
 	statements := make([]UpdateStatement, 0, len(changes))
 	for _, change := range changes {
 		if change.Op == "insert" {
@@ -177,12 +188,11 @@ func BuildChanges(database, table string, metadata EditMetadata, changes []RowCh
 				if err != nil {
 					return nil, err
 				}
-				quoted = append(quoted, QuoteIdent(name))
-				placeholders = append(placeholders, "?")
+				quoted = append(quoted, quote(name))
+				placeholders = append(placeholders, placeholder(len(statement.Parameters)+1))
 				statement.Parameters = append(statement.Parameters, value)
 			}
-			target := QuoteIdent(database) + "." + QuoteIdent(table)
-			if len(names) == 0 && dialect == "sqlite" {
+			if len(names) == 0 && (dialect == "sqlite" || dialect == "postgres") {
 				statement.SQL = "INSERT INTO " + target + " DEFAULT VALUES;"
 			} else {
 				statement.SQL = "INSERT INTO " + target + " (" + strings.Join(quoted, ", ") + ") VALUES (" + strings.Join(placeholders, ", ") + ");"
@@ -212,7 +222,7 @@ func BuildChanges(database, table string, metadata EditMetadata, changes []RowCh
 			if err != nil {
 				return nil, err
 			}
-			assignments = append(assignments, QuoteIdent(name)+" = ?")
+			assignments = append(assignments, quote(name)+" = "+placeholder(len(s.Parameters)+1))
 			s.Parameters = append(s.Parameters, value)
 		}
 		for _, name := range metadata.Key {
@@ -224,15 +234,15 @@ func BuildChanges(database, table string, metadata EditMetadata, changes []RowCh
 			if err != nil {
 				return nil, err
 			}
-			predicates = append(predicates, QuoteIdent(name)+" = ?")
+			predicates = append(predicates, quote(name)+" = "+placeholder(len(s.Parameters)+len(s.keyParameters)+1))
 			s.keyParameters = append(s.keyParameters, value)
 		}
 		s.where = strings.Join(predicates, " AND ")
 		s.Parameters = append(s.Parameters, s.keyParameters...)
 		if change.Op == "delete" {
-			s.SQL = "DELETE FROM " + QuoteIdent(database) + "." + QuoteIdent(table) + " WHERE " + s.where + ";"
+			s.SQL = "DELETE FROM " + target + " WHERE " + s.where + ";"
 		} else {
-			s.SQL = "UPDATE " + QuoteIdent(database) + "." + QuoteIdent(table) + " SET " + strings.Join(assignments, ", ") + " WHERE " + s.where + ";"
+			s.SQL = "UPDATE " + target + " SET " + strings.Join(assignments, ", ") + " WHERE " + s.where + ";"
 		}
 		statements = append(statements, s)
 	}

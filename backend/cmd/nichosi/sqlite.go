@@ -15,6 +15,9 @@ func validConnectionInput(input ConnectionInput) bool {
 	return (input.Driver == Mysql || input.Driver == Postgres) && input.Host != "" && input.Port > 0 && input.Port <= 65535 && input.User != "" && input.Password != nil && *input.Password != "" && input.Database != ""
 }
 func editMetadata(ctx context.Context, item *profile, table string) (driver.EditMetadata, error) {
+	if item.Driver == ConnectionDriverPostgres {
+		return driver.PostgresEditMetadata(ctx, item.pool, table)
+	}
 	if item.Driver == ConnectionDriverSqlite {
 		return driver.SQLiteEditMetadata(ctx, item.pool, table)
 	}

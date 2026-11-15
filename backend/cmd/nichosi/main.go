@@ -457,7 +457,7 @@ func (a *app) queryObjectRows(w http.ResponseWriter, r *http.Request, view bool)
 		page.Columns = append(page.Columns, Column{Name: c.Name, Type: c.Type, Nullable: c.Nullable, PrimaryKey: c.PrimaryKey})
 	}
 	reason := "Read-only connection"
-	if !view && item.Driver != ConnectionDriverPostgres && !item.Readonly && !connectionReadonly(item.input.Readonly) {
+	if !view && !item.Readonly && !connectionReadonly(item.input.Readonly) {
 		metadata, editErr := editMetadata(ctx, item, name)
 		if editErr == nil {
 			page.Editable = true
@@ -475,9 +475,6 @@ func (a *app) queryObjectRows(w http.ResponseWriter, r *http.Request, view bool)
 		} else {
 			reason = "Could not verify table editing metadata"
 		}
-	}
-	if item.Driver == ConnectionDriverPostgres {
-		reason = "PostgreSQL editing is not supported yet"
 	}
 	if view {
 		reason = "Views are read-only"

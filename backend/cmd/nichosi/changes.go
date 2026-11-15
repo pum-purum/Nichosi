@@ -21,10 +21,6 @@ func (a *app) changeRows(w http.ResponseWriter, r *http.Request, apply bool) {
 	}
 	item.mu.RLock()
 	defer item.mu.RUnlock()
-	if item.Driver == ConnectionDriverPostgres {
-		writeError(w, 403, "read_only", "PostgreSQL editing is not supported yet")
-		return
-	}
 	if item.Readonly || connectionReadonly(item.input.Readonly) {
 		writeError(w, 403, "read_only", "Connection is read-only")
 		return
@@ -88,6 +84,8 @@ func (a *app) changeRows(w http.ResponseWriter, r *http.Request, apply bool) {
 	var applied int
 	if item.Driver == ConnectionDriverSqlite {
 		applied, err = driver.SQLiteApplyUpdates(ctx, item.pool, statements)
+	} else if item.Driver == ConnectionDriverPostgres {
+		applied, err = driver.PostgresApplyUpdates(ctx, item.pool, statements)
 	} else {
 		applied, err = driver.MySQLApplyUpdates(ctx, item.pool, item.Database, table, statements)
 	}
