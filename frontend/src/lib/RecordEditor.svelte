@@ -77,7 +77,7 @@
     <fieldset disabled={applying}>
       {#each columns as column, index}
         <div class="record-field">
-          <label for={inserting && column.primaryKey ? undefined : `record-field-${index}`}>{column.name}<small>{column.type}{editKey.includes(column.name) ? ' · Row key' : ''}{column.primaryKey ? inserting ? ' · Primary key' : ' · Read-only primary key' : ''}{inserting && column.autoIncrement ? ' · Auto increment' : ''}{column.generated ? ' · Generated' : ''}{!column.primaryKey && !column.generated && !(inserting ? insertableColumn(column) : editableColumn(column, row[index])) ? ' · Read-only binary value' : ''}</small></label>
+          <label for={inserting && column.primaryKey ? undefined : `record-field-${index}`}>{column.name}{#if inserting && !column.nullable && !draft[index].useDefault && insertableColumn(column)}<span class="required-marker" aria-label="Required">*</span>{/if}<small>{column.type}{editKey.includes(column.name) ? ' · Row key' : ''}{column.primaryKey ? inserting ? ' · Primary key' : ' · Read-only primary key' : ''}{inserting && column.autoIncrement ? ' · Auto increment' : ''}{column.generated ? ' · Generated' : ''}{!column.primaryKey && !column.generated && !(inserting ? insertableColumn(column) : editableColumn(column, row[index])) ? ' · Read-only binary value' : ''}</small></label>
           {#if inserting && column.primaryKey}
             <div class="field-value sequence-value">
               <label class="null-toggle"><input type="checkbox" checked disabled />{column.autoIncrement ? 'Next of sequence' : 'Default'}</label>
@@ -91,7 +91,7 @@
             </div>
             <div class="field-options">
               {#if inserting}<label class="null-toggle"><input type="checkbox" bind:checked={draft[index].useDefault} disabled={!insertableColumn(column)} />Default</label>{/if}
-              {#if column.nullable}<label class="null-toggle"><input type="checkbox" bind:checked={draft[index].isNull} disabled={(inserting && draft[index].useDefault) || !(inserting ? insertableColumn(column) : editableColumn(column, row[index]))} />NULL</label>{:else if !inserting || !draft[index].useDefault}<span class="required">Required</span>{/if}
+              {#if column.nullable}<label class="null-toggle"><input type="checkbox" bind:checked={draft[index].isNull} disabled={(inserting && draft[index].useDefault) || !(inserting ? insertableColumn(column) : editableColumn(column, row[index]))} />NULL</label>{:else if !inserting}<span class="required">Required</span>{/if}
             </div>
           {/if}
           {#if !inserting && editableColumn(column, row[index]) && (draft[index].isNull !== (row[index] === null) || (!draft[index].isNull && draft[index].text !== draftValue(row[index]).text))}<span class="modified">Modified</span>{/if}
@@ -130,6 +130,7 @@
   textarea:disabled { opacity: .5; } .null-toggle { display: flex; align-items: center; gap: 6px; font: 12px var(--mono); } input { accent-color: var(--accent); }
   .sequence-value { display: flex; align-items: center; min-height: 37px; }
   .field-value { min-width: 0; } .field-options { display: grid; gap: 8px; }
+  .required-marker { color: #f39b9b; margin-left: 4px; }
   .required { color: var(--dim); font-size: 12px; } .modified { color: var(--accent); font-size: 12px; }
   .sql-preview { margin-top: 28px; } h2 { font-size: 14px; } p { color: var(--muted); font-size: 13px; }
   pre { overflow: auto; padding: 16px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); font: 13px/1.65 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
