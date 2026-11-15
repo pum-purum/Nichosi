@@ -77,10 +77,10 @@
     <fieldset disabled={applying}>
       {#each columns as column, index}
         <div class="record-field">
-          <label for={inserting && column.primaryKey ? undefined : `record-field-${index}`}>{column.name}{#if inserting && !column.nullable && !draft[index].useDefault && insertableColumn(column)}<span class="required-marker" aria-label="Required">*</span>{/if}<small>{column.type}{editKey.includes(column.name) ? ' · Row key' : ''}{column.primaryKey ? inserting ? ' · Primary key' : ' · Read-only primary key' : ''}{inserting && column.autoIncrement ? ' · Auto increment' : ''}{column.generated ? ' · Generated' : ''}{!column.primaryKey && !column.generated && !(inserting ? insertableColumn(column) : editableColumn(column, row[index])) ? ' · Read-only binary value' : ''}</small></label>
-          {#if inserting && column.primaryKey}
+          <label for={inserting && column.autoIncrement ? undefined : `record-field-${index}`}>{column.name}{#if inserting && !column.nullable && !draft[index].useDefault && insertableColumn(column)}<span class="required-marker" aria-label="Required">*</span>{/if}<small>{column.type}{editKey.includes(column.name) ? ' · Row key' : ''}{column.primaryKey ? inserting ? ' · Primary key' : ' · Read-only primary key' : ''}{inserting && column.autoIncrement ? ' · Auto increment' : ''}{column.generated ? ' · Generated' : ''}{!column.primaryKey && !column.generated && !(inserting ? insertableColumn(column) : editableColumn(column, row[index])) ? ' · Read-only binary value' : ''}</small></label>
+          {#if inserting && column.autoIncrement}
             <div class="field-value sequence-value">
-              <label class="null-toggle"><input type="checkbox" checked disabled />{column.autoIncrement ? 'Next of sequence' : 'Default'}</label>
+              <label class="null-toggle"><input type="checkbox" checked disabled />Next of sequence</label>
               {#if submitted && fieldErrors[index]}<p class="field-error" id={`record-error-${index}`} role="alert">{fieldErrors[index]}</p>{/if}
             </div>
             <div class="field-options"></div>
@@ -90,7 +90,7 @@
               {#if submitted && fieldErrors[index]}<p class="field-error" id={`record-error-${index}`} role="alert">{fieldErrors[index]}</p>{/if}
             </div>
             <div class="field-options">
-              {#if inserting}<label class="null-toggle"><input type="checkbox" bind:checked={draft[index].useDefault} disabled={!insertableColumn(column)} />Default</label>{/if}
+              {#if inserting && column.defaultValue !== undefined}<label class="null-toggle"><input type="checkbox" bind:checked={draft[index].useDefault} disabled={!insertableColumn(column)} />Default <code class="default-value">{column.defaultValue}</code></label>{/if}
               {#if column.nullable}<label class="null-toggle"><input type="checkbox" bind:checked={draft[index].isNull} disabled={(inserting && draft[index].useDefault) || !(inserting ? insertableColumn(column) : editableColumn(column, row[index]))} />NULL</label>{:else if !inserting}<span class="required">Required</span>{/if}
             </div>
           {/if}
@@ -122,12 +122,13 @@
   button:disabled { opacity: .45; cursor: default; }
   button:focus-visible, textarea:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   form { max-width: 1100px; } fieldset { padding: 0; margin: 0; border: 0; min-width: 0; }
-  .record-field { display: grid; grid-template-columns: minmax(140px, 220px) minmax(180px, 1fr) 80px 65px; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
+  .record-field { display: grid; grid-template-columns: minmax(140px, 220px) minmax(180px, 1fr) minmax(120px, 240px) 65px; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
   label { overflow-wrap: anywhere; font-size: 14px; } small { display: block; color: var(--muted); font: 12px var(--mono); margin-top: 5px; }
   textarea { width: 100%; min-height: 37px; resize: vertical; padding: 8px 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--text); font: 13px/1.5 var(--mono); }
   textarea[aria-invalid="true"] { border-color: #f39b9b; }
   .field-error { color: #f39b9b; margin: 6px 0 0; }
   textarea:disabled { opacity: .5; } .null-toggle { display: flex; align-items: center; gap: 6px; font: 12px var(--mono); } input { accent-color: var(--accent); }
+  .default-value { white-space: pre-wrap; overflow-wrap: anywhere; }
   .sequence-value { display: flex; align-items: center; min-height: 37px; }
   .field-value { min-width: 0; } .field-options { display: grid; gap: 8px; }
   .required-marker { color: #f39b9b; margin-left: 4px; }

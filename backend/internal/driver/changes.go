@@ -53,18 +53,18 @@ func MySQLEditMetadata(ctx context.Context, db *sql.DB, database, table string) 
 	if !strings.EqualFold(engine, "InnoDB") {
 		return m, ErrReadOnlyTable
 	}
-	rows, err := db.QueryContext(ctx, "SELECT COLUMN_NAME, IS_NULLABLE, EXTRA, DATA_TYPE, COLUMN_DEFAULT FROM information_schema.columns WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION LIMIT 1001", database, table)
+	rows, err := db.QueryContext(ctx, "SELECT COLUMN_NAME, IS_NULLABLE, EXTRA, DATA_TYPE, COLUMN_DEFAULT, VERSION() FROM information_schema.columns WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION LIMIT 1001", database, table)
 	if err != nil {
 		return m, err
 	}
 	for rows.Next() {
-		var name, nullable, extra, dataType string
+		var name, nullable, extra, dataType, version string
 		var defaultValue *string
-		if err = rows.Scan(&name, &nullable, &extra, &dataType, &defaultValue); err != nil {
+		if err = rows.Scan(&name, &nullable, &extra, &dataType, &defaultValue, &version); err != nil {
 			rows.Close()
 			return m, err
 		}
-		m.Columns[name] = EditColumn{Nullable: nullable == "YES", Generated: strings.Contains(strings.ToUpper(extra), "VIRTUAL GENERATED") || strings.Contains(strings.ToUpper(extra), "STORED GENERATED") || strings.Contains(strings.ToUpper(extra), "PERSISTENT GENERATED"), Type: dataType, DefaultValue: defaultValue, AutoIncrement: strings.Contains(strings.ToLower(extra), "auto_increment")}
+		m.Columns[name] = EditColumn{Nullable: nullable == "YES", Generated: strings.Contains(strings.ToUpper(extra), "VIRTUAL GENERATED") || strings.Contains(strings.ToUpper(extra), "STORED GENERATED") || strings.Contains(strings.ToUpper(extra), "PERSISTENT GENERATED"), Type: dataType, DefaultValue: mysqlDefaultSQL(defaultValue, dataType, extra, version), AutoIncrement: strings.Contains(strings.ToLower(extra), "auto_increment")}
 	}
 	err = rows.Err()
 	rows.Close()
@@ -312,4 +312,22 @@ func safeEditKeyType(dataType string) bool {
 		return false
 	}
 	return true
+}
+
+// mysqlDefaultSQL preserves expressions and quotes MySQL's unquoted string literals.
+// MariaDB already reports defaults as SQL, including quotes around literals.
+func mysqlDefaultSQL(value *string, dataType, extra, version string) *string {
+	if value == nil || strings.Contains(strings.ToLower(version), "mariadb") || strings.Contains(strings.ToUpper(extra), "DEFAULT_GENERATED") {
+		return value
+	}
+	switch strings.ToLower(dataType) {
+	case "tinyint", "smallint", "mediumint", "int", "integer", "bigint", "decimal", "numeric", "float", "double", "real", "bit", "year":
+		return value
+	case "timestamp", "datetime":
+		if strings.HasPrefix(strings.ToUpper(*value), "CURRENT_TIMESTAMP") {
+			return value
+		}
+	}
+	quoted := "'" + strings.ReplaceAll(strings.ReplaceAll(*value, `\`, strings.Repeat(`\`, 2)), "'", "''") + "'"
+	return &quoted
 }

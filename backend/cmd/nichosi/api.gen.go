@@ -143,7 +143,7 @@ type Column struct {
 	// AutoIncrement Database generates an identity when the column is omitted on insert.
 	AutoIncrement *bool `json:"autoIncrement,omitempty"`
 
-	// DefaultValue Database-reported default value or expression for display only; never evaluated by the client.
+	// DefaultValue SQL representation of the database default for display only; string literals include SQL quotes, expressions remain unquoted. Absent when no default is reported. Never evaluated by the client.
 	DefaultValue *string     `json:"defaultValue,omitempty"`
 	ForeignKey   *ForeignRef `json:"foreignKey"`
 

@@ -166,9 +166,9 @@ func (c editMetadataConn) QueryContext(_ context.Context, q string, _ []sqldrive
 	if strings.Contains(q, "information_schema.columns") {
 		values := make([][]sqldriver.Value, len(c.c.columns))
 		for i, row := range c.c.columns {
-			values[i] = append(append([]sqldriver.Value{}, row...), nil)
+			values[i] = append(append([]sqldriver.Value{}, row...), nil, "8.0.40")
 		}
-		return &editRows{columns: []string{"COLUMN_NAME", "IS_NULLABLE", "EXTRA", "DATA_TYPE", "COLUMN_DEFAULT"}, values: values}, nil
+		return &editRows{columns: []string{"COLUMN_NAME", "IS_NULLABLE", "EXTRA", "DATA_TYPE", "COLUMN_DEFAULT", "VERSION()"}, values: values}, nil
 	}
 	return &editRows{columns: []string{"INDEX_NAME", "COLUMN_NAME", "SUB_PART"}, values: c.c.indexes}, nil
 }
@@ -365,5 +365,29 @@ func TestMySQLInsertAtomicity(t *testing.T) {
 		if c.queries != 0 {
 			t.Fatal("inserts must not lock a nonexistent original row")
 		}
+	}
+}
+
+func TestMySQLDefaultSQL(t *testing.T) {
+	for _, tc := range []struct{ value, typ, extra, version, want string }{
+		{"NOW()", "varchar", "", "8.0", "'NOW()'"},
+		{"", "varchar", "", "8.0", "''"},
+		{"O'Reilly", "varchar", "", "8.0", "'O''Reilly'"},
+		{"CURRENT_TIMESTAMP(6)", "timestamp", "", "5.7", "CURRENT_TIMESTAMP(6)"},
+		{"CURRENT_TIMESTAMP", "varchar", "", "8.0", "'CURRENT_TIMESTAMP'"},
+		{"uuid()", "varchar", "DEFAULT_GENERATED", "8.0", "uuid()"},
+		{"42", "int", "", "8.0", "42"},
+		{"'NOW()'", "varchar", "", "11.4-MariaDB", "'NOW()'"},
+		{"current_timestamp()", "timestamp", "", "11.4-MariaDB", "current_timestamp()"},
+	} {
+		t.Run(tc.value+tc.typ+tc.version, func(t *testing.T) {
+			got := mysqlDefaultSQL(&tc.value, tc.typ, tc.extra, tc.version)
+			if got == nil || *got != tc.want {
+				t.Fatalf("got %v, want %q", got, tc.want)
+			}
+		})
+	}
+	if mysqlDefaultSQL(nil, "text", "", "8.0") != nil {
+		t.Fatal("missing default must stay absent")
 	}
 }

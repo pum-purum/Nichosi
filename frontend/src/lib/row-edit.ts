@@ -74,5 +74,5 @@ export function insertableColumn(column: Column): boolean {
   return !column.generated && columnKind(column.type) !== 'binary';
 }
 export function insertionDraft(columns: Column[]): DraftValue[] {
-  return columns.map(column => ({ text: column.defaultValue ?? '', isNull: column.nullable && column.defaultValue === undefined, useDefault: column.primaryKey || !!column.generated || !!column.autoIncrement || column.defaultValue !== undefined || column.nullable || !insertableColumn(column) }));
+  return columns.map(column => ({ text: '', isNull: column.nullable && column.defaultValue === undefined, useDefault: !!column.generated || !!column.autoIncrement || column.defaultValue !== undefined || !insertableColumn(column) }));
 }

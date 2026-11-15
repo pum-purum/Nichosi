@@ -84,10 +84,12 @@ describe('record insertion', () => {
   ];
   it('omits defaults and generated columns without evaluating expressions', () => {
     const draft = insertionDraft(insertColumns);
-    expect(draft[1].text).toBe('NOW()');
+    expect(draft[1].text).toBe('');
+    expect(draft[1].useDefault).toBe(true);
+    expect(draft[2].useDefault).toBe(false);
     const nullableDefault = insertionDraft([{ ...insertColumns[1], nullable: true }]);
     expect(nullableDefault[0].isNull).toBe(false);
-    expect(rowChanges(insertColumns, [], draft, [], true)).toEqual({ changes: [{ op: 'insert', values: {} }] });
+    expect(rowChanges(insertColumns, [], draft, [], true)).toEqual({ changes: [{ op: 'insert', values: { name: null } }] });
   });
   it('accepts explicit primary keys, NULL, empty strings and literal function text', () => {
     const draft = insertionDraft(insertColumns);

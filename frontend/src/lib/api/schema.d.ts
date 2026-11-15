@@ -394,7 +394,7 @@ export interface components {
             primaryKey: boolean;
             /** @description Generated columns are displayed but cannot be edited. */
             generated?: boolean;
-            /** @description Database-reported default value or expression for display only; never evaluated by the client. */
+            /** @description SQL representation of the database default for display only; string literals include SQL quotes, expressions remain unquoted. Absent when no default is reported. Never evaluated by the client. */
             defaultValue?: string;
             /** @description Database generates an identity when the column is omitted on insert. */
             autoIncrement?: boolean;
