@@ -37,6 +37,10 @@ ORDER BY a.attnum LIMIT 1001`, oid)
 		}
 		// Serial columns expose their sequence through a server-evaluated default.
 		c.AutoIncrement = c.AutoIncrement || (c.DefaultValue != nil && strings.HasPrefix(*c.DefaultValue, "nextval("))
+		// Identity ALWAYS accepts explicit inserts via OVERRIDING SYSTEM VALUE.
+		if c.AutoIncrement {
+			c.Generated = false
+		}
 		m.Columns[name] = c
 	}
 	err = rows.Err()
@@ -46,6 +50,12 @@ ORDER BY a.attnum LIMIT 1001`, oid)
 	}
 	if len(m.Columns) == 0 || len(m.Columns) > 1000 {
 		return m, ErrReadOnlyTable
+	}
+	for name, column := range m.Columns {
+		if column.PrimaryKey && column.AutoIncrement {
+			column.NextAutoIncrementValue, _ = postgresNextIdentity(ctx, db, oid, name)
+			m.Columns[name] = column
+		}
 	}
 	rows, err = db.QueryContext(ctx, `SELECT i.indexrelid::bigint,a.attname
 FROM pg_index i CROSS JOIN LATERAL unnest(i.indkey) WITH ORDINALITY AS k(attnum,position)

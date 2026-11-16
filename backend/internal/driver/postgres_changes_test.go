@@ -11,7 +11,7 @@ import (
 )
 
 func TestPostgresBuildChanges(t *testing.T) {
-	metadata := EditMetadata{source: `"schema.with.dot"."ta""ble"`, Columns: map[string]EditColumn{"id": {Type: "int8", PrimaryKey: true}, "tenant": {Type: "text"}, `val"ue`: {Nullable: true}, "identity": {Generated: true}, "computed": {Generated: true}}, Key: []string{"tenant", "id"}}
+	metadata := EditMetadata{source: `"schema.with.dot"."ta""ble"`, Columns: map[string]EditColumn{"id": {Type: "int8", PrimaryKey: true}, "tenant": {Type: "text"}, `val"ue`: {Nullable: true}, "identity": {AutoIncrement: true}, "computed": {Generated: true}}, Key: []string{"tenant", "id"}}
 	for _, tc := range []struct {
 		name       string
 		changes    []RowChange
@@ -23,7 +23,7 @@ func TestPostgresBuildChanges(t *testing.T) {
 		{name: "default insert", changes: []RowChange{{Op: "insert"}}, sql: `INSERT INTO "schema.with.dot"."ta""ble" DEFAULT VALUES;`, parameters: []any{}},
 		{name: "update composite", changes: []RowChange{{Op: "update", Values: map[string]any{`val"ue`: nil}, Key: map[string]any{"tenant": "x' OR 1=1 --", "id": "7"}}}, sql: `UPDATE "schema.with.dot"."ta""ble" SET "val""ue" = $1 WHERE "tenant" = $2 AND "id" = $3;`, parameters: []any{nil, "x' OR 1=1 --", int64(7)}},
 		{name: "delete composite", changes: []RowChange{{Op: "delete", Key: map[string]any{"tenant": "x", "id": "7"}}}, sql: `DELETE FROM "schema.with.dot"."ta""ble" WHERE "tenant" = $1 AND "id" = $2;`, parameters: []any{"x", int64(7)}},
-		{name: "identity always", changes: []RowChange{{Op: "insert", Values: map[string]any{"identity": "1"}}}, invalid: true},
+		{name: "identity always", changes: []RowChange{{Op: "insert", Values: map[string]any{"identity": "1"}}}, sql: `INSERT INTO "schema.with.dot"."ta""ble" ("identity") OVERRIDING SYSTEM VALUE VALUES ($1);`, parameters: []any{"1"}},
 		{name: "generated", changes: []RowChange{{Op: "insert", Values: map[string]any{"computed": "1"}}}, invalid: true},
 		{name: "update primary key", changes: []RowChange{{Op: "update", Values: map[string]any{"id": "1"}, Key: map[string]any{"tenant": "x", "id": "7"}}}, invalid: true},
 	} {
@@ -83,6 +83,9 @@ func TestPostgresEditMetadata(t *testing.T) {
 					}
 					return &editRows{columns: []string{"oid", "source"}, values: values}, nil
 				}
+				if strings.Contains(q, "JOIN pg_sequence") {
+					return nil, errors.New("sequence unavailable")
+				}
 				if len(args) != 1 || args[0].Value != int64(42) {
 					t.Fatalf("metadata not bound to OID: %s %+v", q, args)
 				}
@@ -121,7 +124,7 @@ func TestPostgresEditMetadata(t *testing.T) {
 				}
 				return
 			}
-			if err != nil || !reflect.DeepEqual(m.Key, tc.want) || m.source != `"schema.dot"."ta""ble"` || !m.Columns["computed"].Generated || !m.Columns["serial"].AutoIncrement || !m.Columns["always"].Generated || !m.Columns["always"].AutoIncrement || !m.Columns["id"].PrimaryKey {
+			if err != nil || !reflect.DeepEqual(m.Key, tc.want) || m.source != `"schema.dot"."ta""ble"` || !m.Columns["computed"].Generated || !m.Columns["serial"].AutoIncrement || m.Columns["always"].Generated || !m.Columns["always"].AutoIncrement || !m.Columns["id"].PrimaryKey {
 				t.Fatalf("%+v %v", m, err)
 			}
 		})

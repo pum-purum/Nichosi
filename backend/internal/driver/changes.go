@@ -187,10 +187,14 @@ func BuildChanges(database, table string, metadata EditMetadata, changes []RowCh
 			sort.Strings(names)
 			statement := UpdateStatement{insert: true, Parameters: []any{}}
 			quoted, placeholders := []string{}, []string{}
+			override := ""
 			for _, name := range names {
 				column, ok := metadata.Columns[name]
 				if !ok || column.Generated || (change.Values[name] == nil && !column.Nullable) {
 					return nil, ErrInvalidChange
+				}
+				if dialect == "postgres" && column.AutoIncrement {
+					override = " OVERRIDING SYSTEM VALUE"
 				}
 				value, err := changeValue(change.Values[name], column)
 				if err != nil {
@@ -203,7 +207,7 @@ func BuildChanges(database, table string, metadata EditMetadata, changes []RowCh
 			if len(names) == 0 && (dialect == "sqlite" || dialect == "postgres") {
 				statement.SQL = "INSERT INTO " + target + " DEFAULT VALUES;"
 			} else {
-				statement.SQL = "INSERT INTO " + target + " (" + strings.Join(quoted, ", ") + ") VALUES (" + strings.Join(placeholders, ", ") + ");"
+				statement.SQL = "INSERT INTO " + target + " (" + strings.Join(quoted, ", ") + ")" + override + " VALUES (" + strings.Join(placeholders, ", ") + ");"
 			}
 			statements = append(statements, statement)
 			continue

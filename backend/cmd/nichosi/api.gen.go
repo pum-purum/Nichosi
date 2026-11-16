@@ -151,7 +151,7 @@ type Column struct {
 	Generated *bool  `json:"generated,omitempty"`
 	Name      string `json:"name"`
 
-	// NextAutoIncrementValue Estimated next MySQL/MariaDB auto-increment value from table metadata, as a decimal string to preserve precision. Display only; read with the MySQL statistics cache bypassed when supported. Concurrent inserts or server settings may change the actual value. Absent when unavailable. Never submit this estimate as an insert value.
+	// NextAutoIncrementValue Estimated next MySQL/MariaDB auto-increment or PostgreSQL primary-key sequence value, as a decimal string to preserve precision. Display only; sequence reads never advance the counter. Concurrent inserts, sequence caching or server settings may change the actual value. Absent when unavailable or inaccessible. Never submit this estimate as an insert value.
 	NextAutoIncrementValue *string `json:"nextAutoIncrementValue,omitempty"`
 	Nullable               bool    `json:"nullable"`
 	PrimaryKey             bool    `json:"primaryKey"`
