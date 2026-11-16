@@ -143,8 +143,9 @@ func TestApplyUpdatesAtomicity(t *testing.T) {
 }
 
 type editMetadataConnector struct {
-	engine           string
-	columns, indexes [][]sqldriver.Value
+	engine            string
+	nextAutoIncrement sqldriver.Value
+	columns, indexes  [][]sqldriver.Value
 }
 
 func (c *editMetadataConnector) Connect(context.Context) (sqldriver.Conn, error) {
@@ -160,7 +161,13 @@ func (editMetadataConn) Prepare(string) (sqldriver.Stmt, error) {
 func (editMetadataConn) Close() error                 { return nil }
 func (editMetadataConn) Begin() (sqldriver.Tx, error) { return nil, errors.New("unsupported") }
 func (c editMetadataConn) QueryContext(_ context.Context, q string, _ []sqldriver.NamedValue) (sqldriver.Rows, error) {
+	if q == "SELECT @@SESSION.information_schema_stats_expiry" {
+		return &editRows{columns: []string{"expiry"}, values: [][]sqldriver.Value{{int64(0)}}}, nil
+	}
 	if strings.Contains(q, "information_schema.tables") {
+		if strings.Contains(q, "CAST(AUTO_INCREMENT") {
+			return &editRows{columns: []string{"AUTO_INCREMENT"}, values: [][]sqldriver.Value{{c.c.nextAutoIncrement}}}, nil
+		}
 		return &editRows{columns: []string{"ENGINE"}, values: [][]sqldriver.Value{{c.c.engine}}}, nil
 	}
 	if strings.Contains(q, "information_schema.columns") {
@@ -391,3 +398,39 @@ func TestMySQLDefaultSQL(t *testing.T) {
 		t.Fatal("missing default must stay absent")
 	}
 }
+
+func TestMySQLNextAutoIncrementValue(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		value sqldriver.Value
+		want  *string
+	}{
+		{name: "unavailable"},
+		{name: "empty table", value: "1", want: stringPointer("1")},
+		{name: "unsigned bigint", value: "18446744073709551615", want: stringPointer("18446744073709551615")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db := sql.OpenDB(&editMetadataConnector{
+				engine: "InnoDB", nextAutoIncrement: tc.value,
+				columns: [][]sqldriver.Value{{"id", "NO", "auto_increment", "bigint"}, {"name", "NO", "", "varchar"}},
+				indexes: [][]sqldriver.Value{{"PRIMARY", "id", nil}},
+			})
+			defer db.Close()
+			metadata, err := MySQLEditMetadata(context.Background(), db, "db", "table")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(metadata.Columns["id"].NextAutoIncrementValue, tc.want) || metadata.Columns["name"].NextAutoIncrementValue != nil {
+				t.Fatalf("unexpected estimates: %+v", metadata.Columns)
+			}
+			statements, err := BuildUpdates("db", "table", metadata, []RowChange{{Op: "insert", Values: map[string]any{"name": "new"}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(statements[0].SQL, "`id`") || !reflect.DeepEqual(statements[0].Parameters, []any{"new"}) {
+				t.Fatalf("estimate must not be inserted: %+v", statements)
+			}
+		})
+	}
+}
+func stringPointer(value string) *string { return &value }

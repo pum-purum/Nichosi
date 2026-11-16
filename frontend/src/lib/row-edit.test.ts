@@ -101,6 +101,20 @@ describe('record insertion', () => {
     draft[2] = { text: 'NOW()', isNull: false, useDefault: false };
     expect(rowChanges(insertColumns, [], draft, [], true).changes[0].values?.name).toBe('NOW()');
   });
+  it('switches auto-increment keys between database generation and explicit values', () => {
+    const columns = [{ ...insertColumns[0], nextAutoIncrementValue: '18446744073709551615' }];
+    const draft = insertionDraft(columns);
+    expect(rowFieldErrors(columns, [], draft, true)).toEqual(['']);
+    expect(rowChanges(columns, [], draft, [], true).changes[0].values).toEqual({});
+    draft[0].useDefault = false;
+    expect(rowFieldErrors(columns, [], draft, true)[0]).toContain('integer');
+    draft[0].text = '9007199254740993';
+    expect(rowChanges(columns, [], draft, [], true).changes[0].values).toEqual({ id: '9007199254740993' });
+    draft[0].useDefault = true;
+    expect(rowChanges(columns, [], draft, [], true).changes[0].values).toEqual({});
+    draft[0].useDefault = false;
+    expect(draft[0].text).toBe('9007199254740993');
+  });
   it('validates required numeric input and keeps required fields editable initially', () => {
     const required = [{ ...insertColumns[0], primaryKey: false, autoIncrement: false }];
     const draft = insertionDraft(required);

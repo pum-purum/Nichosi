@@ -20,6 +20,7 @@ type EditColumn struct {
 	Type                            string
 	DefaultValue                    *string
 	AutoIncrement                   bool
+	NextAutoIncrementValue          *string
 }
 type EditMetadata struct {
 	Columns map[string]EditColumn
@@ -43,7 +44,7 @@ type UpdateStatement struct {
 func MySQLEditMetadata(ctx context.Context, db *sql.DB, database, table string) (EditMetadata, error) {
 	m := EditMetadata{Columns: map[string]EditColumn{}, Key: []string{}}
 	var engine string
-	err := db.QueryRowContext(ctx, "SELECT COALESCE(ENGINE, '') FROM information_schema.tables WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND TABLE_TYPE = 'BASE TABLE'", database, table).Scan(&engine)
+	err := db.QueryRowContext(ctx, "SELECT COALESCE(ENGINE, '') FROM information_schema.tables WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND TABLE_TYPE = 'BASE TABLE' LIMIT 1", database, table).Scan(&engine)
 	if errors.Is(err, sql.ErrNoRows) {
 		return m, ErrRowsObjectNotFound
 	}
@@ -73,6 +74,13 @@ func MySQLEditMetadata(ctx context.Context, db *sql.DB, database, table string) 
 	}
 	if len(m.Columns) > 1000 {
 		return m, ErrReadOnlyTable
+	}
+	for name, column := range m.Columns {
+		if column.AutoIncrement {
+			// A missing hint must never make an otherwise editable table read-only.
+			column.NextAutoIncrementValue, _ = mysqlNextAutoIncrement(ctx, db, database, table)
+			m.Columns[name] = column
+		}
 	}
 	rows, err = db.QueryContext(ctx, "SELECT INDEX_NAME, COLUMN_NAME, SUB_PART FROM information_schema.statistics WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND NON_UNIQUE = 0 ORDER BY (INDEX_NAME = 'PRIMARY') DESC, INDEX_NAME, SEQ_IN_INDEX LIMIT 1001", database, table)
 	if err != nil {

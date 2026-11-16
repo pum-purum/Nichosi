@@ -77,23 +77,16 @@
     <fieldset disabled={applying}>
       {#each columns as column, index}
         <div class="record-field">
-          <label for={inserting && column.autoIncrement ? undefined : `record-field-${index}`}>{column.name}{#if inserting && !column.nullable && !draft[index].useDefault && insertableColumn(column)}<span class="required-marker" aria-label="Required">*</span>{/if}<small>{column.type}{editKey.includes(column.name) ? ' · Row key' : ''}{column.primaryKey ? inserting ? ' · Primary key' : ' · Read-only primary key' : ''}{inserting && column.autoIncrement ? ' · Auto increment' : ''}{column.generated ? ' · Generated' : ''}{!column.primaryKey && !column.generated && !(inserting ? insertableColumn(column) : editableColumn(column, row[index])) ? ' · Read-only binary value' : ''}</small></label>
-          {#if inserting && column.autoIncrement}
-            <div class="field-value sequence-value">
-              <label class="null-toggle"><input type="checkbox" checked disabled />Next of sequence</label>
-              {#if submitted && fieldErrors[index]}<p class="field-error" id={`record-error-${index}`} role="alert">{fieldErrors[index]}</p>{/if}
-            </div>
-            <div class="field-options"></div>
-          {:else}
-            <div class="field-value">
-              <textarea id={`record-field-${index}`} rows={1} bind:value={draft[index].text} disabled={(inserting && draft[index].useDefault) || draft[index].isNull || !(inserting ? insertableColumn(column) : editableColumn(column, row[index]))} spellcheck="false" aria-invalid={submitted && !!fieldErrors[index]} aria-describedby={submitted && fieldErrors[index] ? `record-error-${index}` : undefined} aria-label={`${column.name} value`}></textarea>
-              {#if submitted && fieldErrors[index]}<p class="field-error" id={`record-error-${index}`} role="alert">{fieldErrors[index]}</p>{/if}
-            </div>
-            <div class="field-options">
-              {#if inserting && column.defaultValue !== undefined}<label class="null-toggle"><input type="checkbox" bind:checked={draft[index].useDefault} disabled={!insertableColumn(column)} />Default <code class="default-value">{column.defaultValue}</code></label>{/if}
-              {#if column.nullable}<label class="null-toggle"><input type="checkbox" bind:checked={draft[index].isNull} disabled={(inserting && draft[index].useDefault) || !(inserting ? insertableColumn(column) : editableColumn(column, row[index]))} />NULL</label>{:else if !inserting}<span class="required">Required</span>{/if}
-            </div>
-          {/if}
+          <label for={`record-field-${index}`}>{column.name}{#if inserting && !column.nullable && !draft[index].useDefault && insertableColumn(column)}<span class="required-marker" aria-label="Required">*</span>{/if}<small>{column.type}{editKey.includes(column.name) ? ' · Row key' : ''}{column.primaryKey ? inserting ? ' · Primary key' : ' · Read-only primary key' : ''}{inserting && column.autoIncrement ? ' · Auto increment' : ''}{column.generated ? ' · Generated' : ''}{!column.primaryKey && !column.generated && !(inserting ? insertableColumn(column) : editableColumn(column, row[index])) ? ' · Read-only binary value' : ''}</small></label>
+          <div class="field-value">
+            <textarea id={`record-field-${index}`} rows={1} value={inserting && column.autoIncrement && draft[index].useDefault ? '' : draft[index].text} oninput={(event) => { draft[index].text = event.currentTarget.value; }} disabled={(inserting && draft[index].useDefault) || draft[index].isNull || !(inserting ? insertableColumn(column) : editableColumn(column, row[index]))} placeholder={inserting && column.autoIncrement && draft[index].useDefault && column.nextAutoIncrementValue !== undefined ? `≈ ${column.nextAutoIncrementValue}` : undefined} spellcheck="false" aria-invalid={submitted && !!fieldErrors[index]} aria-describedby={[submitted && fieldErrors[index] ? `record-error-${index}` : '', inserting && column.autoIncrement && draft[index].useDefault && column.nextAutoIncrementValue !== undefined ? `record-estimate-${index}` : ''].filter(Boolean).join(' ') || undefined} aria-label={`${column.name} value`}></textarea>
+            {#if inserting && column.autoIncrement && draft[index].useDefault && column.nextAutoIncrementValue !== undefined}<p class="identity-hint" id={`record-estimate-${index}`}>Estimated ID; the database assigns the actual value on insert.</p>{/if}
+            {#if submitted && fieldErrors[index]}<p class="field-error" id={`record-error-${index}`} role="alert">{fieldErrors[index]}</p>{/if}
+          </div>
+          <div class="field-options">
+            {#if inserting && column.autoIncrement}<label class="null-toggle"><input type="checkbox" bind:checked={draft[index].useDefault} disabled={!insertableColumn(column)} />Generate automatically</label>{:else if inserting && column.defaultValue !== undefined}<label class="null-toggle"><input type="checkbox" bind:checked={draft[index].useDefault} disabled={!insertableColumn(column)} />Default <code class="default-value">{column.defaultValue}</code></label>{/if}
+            {#if column.nullable}<label class="null-toggle"><input type="checkbox" bind:checked={draft[index].isNull} disabled={(inserting && draft[index].useDefault) || !(inserting ? insertableColumn(column) : editableColumn(column, row[index]))} />NULL</label>{:else if !inserting}<span class="required">Required</span>{/if}
+          </div>
           {#if !inserting && editableColumn(column, row[index]) && (draft[index].isNull !== (row[index] === null) || (!draft[index].isNull && draft[index].text !== draftValue(row[index]).text))}<span class="modified">Modified</span>{/if}
         </div>
       {/each}
@@ -127,9 +120,10 @@
   textarea { width: 100%; min-height: 37px; resize: vertical; padding: 8px 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--text); font: 13px/1.5 var(--mono); }
   textarea[aria-invalid="true"] { border-color: #f39b9b; }
   .field-error { color: #f39b9b; margin: 6px 0 0; }
+  textarea::placeholder { color: var(--muted); opacity: 1; }
+  .identity-hint { margin: 6px 0 0; font-size: 12px; }
   textarea:disabled { opacity: .5; } .null-toggle { display: flex; align-items: center; gap: 6px; font: 12px var(--mono); } input { accent-color: var(--accent); }
   .default-value { white-space: pre-wrap; overflow-wrap: anywhere; }
-  .sequence-value { display: flex; align-items: center; min-height: 37px; }
   .field-value { min-width: 0; } .field-options { display: grid; gap: 8px; }
   .required-marker { color: #f39b9b; margin-left: 4px; }
   .required { color: var(--dim); font-size: 12px; } .modified { color: var(--accent); font-size: 12px; }
