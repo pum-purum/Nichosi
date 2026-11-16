@@ -16,6 +16,7 @@
     ...(relationType === 'table' ? [
       { title: 'Keys and indexes', rows: preserveSource ? metadata.indexes : groupMetadataKeys(metadata.indexes), preferred: ['Name', 'Columns', 'Kind', 'Type'] },
       { title: 'Foreign keys', rows: preserveSource ? metadata.foreignKeys : groupMetadataKeys(metadata.foreignKeys, true), preferred: ['Name', 'Columns', 'References', 'On update', 'On delete'] },
+      ...(metadata.sequences?.length ? [{ title: 'Sequences', rows: metadata.sequences, preferred: ['Schema', 'Name', 'Column', 'Type', 'Start', 'Increment', 'Minimum', 'Maximum', 'Cache', 'Cycle'] }] : []),
       { title: 'Triggers', rows: metadata.triggers, preferred: ['Name', 'Timing', 'Event', 'Statement'] },
     ] : []),
   ] : []);

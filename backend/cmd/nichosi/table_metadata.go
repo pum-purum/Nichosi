@@ -60,5 +60,5 @@ func (a *app) getObjectMetadata(w http.ResponseWriter, r *http.Request, view boo
 		writeError(w, http.StatusBadGateway, "metadata_failed", "Could not read object metadata")
 		return
 	}
-	writeJSON(w, http.StatusOK, TableMetadata{Name: metadata.Name, Details: metadata.Details, Columns: metadata.Columns, Indexes: metadata.Indexes, ForeignKeys: metadata.ForeignKeys, Triggers: metadata.Triggers, Definition: metadata.Definition, Warnings: metadata.Warnings})
+	writeJSON(w, http.StatusOK, TableMetadata{Name: metadata.Name, Details: metadata.Details, Columns: metadata.Columns, Indexes: metadata.Indexes, ForeignKeys: metadata.ForeignKeys, Triggers: metadata.Triggers, Sequences: metadata.Sequences, Definition: metadata.Definition, Warnings: metadata.Warnings})
 }

@@ -419,6 +419,10 @@ export interface components {
             triggers: {
                 [key: string]: string;
             }[];
+            /** @description PostgreSQL sequences owned by table columns or referenced by column defaults. Omitted for other drivers. Current sequence values are not read. */
+            sequences?: {
+                [key: string]: string;
+            }[];
             /** @description Full server-reported CREATE TABLE statement; empty when unavailable. */
             definition: string;
             warnings: string[];

@@ -17,6 +17,7 @@ type TableMetadata struct {
 	Name                                    string
 	Details                                 map[string]string
 	Columns, Indexes, ForeignKeys, Triggers []map[string]string
+	Sequences                               *[]map[string]string
 	Definition                              string
 	Warnings                                []string
 }

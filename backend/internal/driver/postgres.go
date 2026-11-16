@@ -213,6 +213,8 @@ func PostgresMetadata(ctx context.Context, db *sql.DB, name string, view bool) (
 		return result, ErrTableNotFound
 	}
 	result.Details = details[0]
+	sequences := []map[string]string{}
+	result.Sequences = &sequences
 	categories := []struct {
 		label, query string
 		dest         *[]map[string]string
@@ -220,6 +222,7 @@ func PostgresMetadata(ctx context.Context, db *sql.DB, name string, view bool) (
 		{"Columns", `SELECT a.attnum AS "Position",a.attname AS "Name",format_type(a.atttypid,a.atttypmod) AS "Type",NOT a.attnotnull AS "Nullable",pg_get_expr(d.adbin,d.adrelid) AS "Default",col_description(a.attrelid,a.attnum) AS "Comment" FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid=a.attrelid AND d.adnum=a.attnum WHERE a.attrelid=$1 AND a.attnum>0 AND NOT a.attisdropped ORDER BY a.attnum LIMIT 1001`, &result.Columns},
 		{"Indexes", `SELECT ci.relname AS "Name",i.indisprimary AS "Primary key",i.indisunique AS "Unique",pg_get_indexdef(i.indexrelid) AS "Definition" FROM pg_index i JOIN pg_class ci ON ci.oid=i.indexrelid WHERE i.indrelid=$1 ORDER BY ci.relname LIMIT 1001`, &result.Indexes},
 		{"Foreign keys", `SELECT conname AS "Name",pg_get_constraintdef(oid,true) AS "Definition" FROM pg_constraint WHERE conrelid=$1 AND contype='f' ORDER BY conname LIMIT 1001`, &result.ForeignKeys},
+		{"Sequences", postgresTableSequencesQuery, result.Sequences},
 		{"Triggers", `SELECT tgname AS "Name",pg_get_triggerdef(oid,true) AS "Definition" FROM pg_trigger WHERE tgrelid=$1 AND NOT tgisinternal ORDER BY tgname LIMIT 1001`, &result.Triggers},
 	}
 	for _, c := range categories {
@@ -249,3 +252,24 @@ func PostgresMetadata(ctx context.Context, db *sql.DB, name string, view bool) (
 	}
 	return result, nil
 }
+
+// Include owned serial/identity sequences and sequences referenced by defaults,
+// including shared sequences which are not owned by this table.
+const postgresTableSequencesQuery = `WITH links AS (
+ SELECT d.objid AS sequence_oid,d.refobjsubid AS column_number
+ FROM pg_depend d
+ WHERE d.classid='pg_class'::regclass AND d.refclassid='pg_class'::regclass
+ AND d.refobjid=$1 AND d.refobjsubid>0 AND d.deptype IN ('a','i')
+ UNION
+ SELECT d.refobjid,a.adnum
+ FROM pg_attrdef a JOIN pg_depend d ON d.classid='pg_attrdef'::regclass AND d.objid=a.oid
+ WHERE a.adrelid=$1 AND d.refclassid='pg_class'::regclass
+)
+SELECT n.nspname AS "Schema",c.relname AS "Name",a.attname AS "Column",
+format_type(s.seqtypid,NULL) AS "Type",s.seqstart AS "Start",s.seqincrement AS "Increment",
+s.seqmin AS "Minimum",s.seqmax AS "Maximum",s.seqcache AS "Cache",s.seqcycle AS "Cycle"
+FROM links l JOIN pg_sequence s ON s.seqrelid=l.sequence_oid
+JOIN pg_class c ON c.oid=s.seqrelid JOIN pg_namespace n ON n.oid=c.relnamespace
+JOIN pg_attribute a ON a.attrelid=$1 AND a.attnum=l.column_number AND NOT a.attisdropped
+WHERE has_schema_privilege(n.oid,'USAGE')
+ORDER BY n.nspname,c.relname,a.attnum LIMIT 1001`

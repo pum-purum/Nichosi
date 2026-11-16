@@ -437,6 +437,10 @@ components:
         triggers:
           type: array
           items: { type: object, additionalProperties: { type: string } }
+        sequences:
+          description: PostgreSQL sequences owned by table columns or referenced by column defaults. Omitted for other drivers. Current sequence values are not read.
+          type: array
+          items: { type: object, additionalProperties: { type: string } }
         definition: { type: string, description: Full server-reported CREATE TABLE statement; empty when unavailable. }
         warnings: { type: array, items: { type: string } }
     TableInfo:

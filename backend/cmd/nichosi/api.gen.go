@@ -431,8 +431,11 @@ type TableMetadata struct {
 	ForeignKeys []map[string]string `json:"foreignKeys"`
 	Indexes     []map[string]string `json:"indexes"`
 	Name        string              `json:"name"`
-	Triggers    []map[string]string `json:"triggers"`
-	Warnings    []string            `json:"warnings"`
+
+	// Sequences PostgreSQL sequences owned by table columns or referenced by column defaults. Omitted for other drivers. Current sequence values are not read.
+	Sequences *[]map[string]string `json:"sequences,omitempty"`
+	Triggers  []map[string]string  `json:"triggers"`
+	Warnings  []string             `json:"warnings"`
 }
 
 // TableStats defines model for TableStats.
