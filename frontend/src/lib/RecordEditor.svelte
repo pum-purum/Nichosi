@@ -5,6 +5,8 @@
   import { onDestroy } from 'svelte';
   import type { components } from './api/schema';
   import { createChangeSetStore, draftValue, editableColumn, rowChanges, insertableColumn, insertionDraft, rowFieldErrors } from './row-edit';
+  import MemberSelect from './MemberSelect.svelte';
+  import { columnOptions } from './column-options';
   import { highlightSQL } from './sql-highlight';
 
   let { connectionId, table, columns, row, editKey, cancel, saved, inserting = false }: {
@@ -76,10 +78,15 @@
   <form onsubmit={(event) => { event.preventDefault(); void apply(); }}>
     <fieldset disabled={applying}>
       {#each columns as column, index}
+        {@const options = columnOptions(column.type)}
         <div class="record-field">
           <label for={`record-field-${index}`}>{column.name}{#if inserting && !column.nullable && !draft[index].useDefault && insertableColumn(column)}<span class="required-marker" aria-label="Required">*</span>{/if}<small>{column.type}{editKey.includes(column.name) ? ' · Row key' : ''}{column.primaryKey ? inserting ? ' · Primary key' : ' · Read-only primary key' : ''}{inserting && column.autoIncrement ? ' · Auto increment' : ''}{column.generated ? ' · Generated' : ''}{!column.primaryKey && !column.generated && !(inserting ? insertableColumn(column) : editableColumn(column, row[index])) ? ' · Read-only binary value' : ''}</small></label>
           <div class="field-value">
+            {#if options}
+              <MemberSelect id={`record-field-${index}`} name={column.name} {options} bind:value={draft[index].text} disabled={(inserting && draft[index].useDefault) || draft[index].isNull || !(inserting ? insertableColumn(column) : editableColumn(column, row[index]))} invalid={submitted && !!fieldErrors[index]} describedby={submitted && fieldErrors[index] ? `record-error-${index}` : undefined} />
+            {:else}
             <textarea id={`record-field-${index}`} rows={1} value={inserting && column.autoIncrement && draft[index].useDefault ? '' : draft[index].text} oninput={(event) => { draft[index].text = event.currentTarget.value; }} disabled={(inserting && draft[index].useDefault) || draft[index].isNull || !(inserting ? insertableColumn(column) : editableColumn(column, row[index]))} placeholder={inserting && column.autoIncrement && draft[index].useDefault && column.nextAutoIncrementValue !== undefined ? `≈ ${column.nextAutoIncrementValue}` : undefined} spellcheck="false" aria-invalid={submitted && !!fieldErrors[index]} aria-describedby={[submitted && fieldErrors[index] ? `record-error-${index}` : '', inserting && column.autoIncrement && draft[index].useDefault && column.nextAutoIncrementValue !== undefined ? `record-estimate-${index}` : ''].filter(Boolean).join(' ') || undefined} aria-label={`${column.name} value`}></textarea>
+            {/if}
             {#if inserting && column.autoIncrement && draft[index].useDefault && column.nextAutoIncrementValue !== undefined}<p class="identity-hint" id={`record-estimate-${index}`}>Estimated ID; the database assigns the actual value on insert.</p>{/if}
             {#if submitted && fieldErrors[index]}<p class="field-error" id={`record-error-${index}`} role="alert">{fieldErrors[index]}</p>{/if}
           </div>

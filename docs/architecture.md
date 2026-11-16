@@ -219,3 +219,5 @@ and owns bound values and placeholder numbering for the entire WHERE clause.
 The existing filter functions remain the entry points for all three dialects.
 
 ChangeSet preview and apply return database driver diagnostics directly, preserving line breaks and redacting connection passwords and DSNs with the same rules as the SQL console. Local validation and row conflict errors retain their specific messages.
+
+Record editing and insertion use a single-choice dropdown for MySQL/MariaDB ENUM columns and a checkbox dropdown for SET columns. Choices are decoded from the server-reported column type, including quoted and escaped members. SET permits an empty selection; ENUM permits an empty string only when explicitly declared. NULL and Default remain separate controls, and invalid member values block ChangeSet preview and application.

@@ -1,6 +1,7 @@
 import { writable } from 'svelte/store';
 import type { components } from './api/schema';
 import { columnKind, isBinaryValue } from './cell-value';
+import { columnOptions } from './column-options';
 
 type Column = components['schemas']['Column'];
 type ChangeSet = components['schemas']['ChangeSet'];
@@ -14,6 +15,11 @@ export function editableColumn(column: Column, value?: unknown): boolean {
 export function fieldError(column: Column, after: DraftValue, insert = false): string {
   if (after.isNull) return column.nullable ? '' : `${column.name} cannot be NULL.`;
   const kind = columnKind(column.type);
+  const options = columnOptions(column.type);
+  if (options) {
+    const valid = options.kind === 'enum' ? options.values.includes(after.text) : after.text === '' || after.text.split(',').every(value => options.values.includes(value));
+    return valid ? '' : `${column.name} requires a valid ${options.kind.toUpperCase()} selection.`;
+  }
   if (kind === 'integer' && !/^[+-]?\d+$/.test(after.text)) return `${column.name} requires an integer.`;
   if (kind === 'decimal' && !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(after.text)) return `${column.name} requires a number.`;
   if (kind === 'json') {
