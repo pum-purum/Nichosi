@@ -259,7 +259,7 @@ kbd { flex: 0 0 auto; padding: 2px 4px; border: 1px solid #283241; border-radius
 .data-grid-wrap[aria-busy="true"] .data-grid { filter: blur(3px); opacity: .6; }
 @keyframes grid-spin { to { transform: rotate(360deg); } }
 .data-grid { width: max-content; min-width: 100%; table-layout: auto; font-family: var(--sans); font-size: 14px; }
-.data-grid th { min-width: 150px; height: 74px; padding: 10px 14px; border-color: #3f4a5a; background: #242d3a; font-size: 14px; white-space: nowrap; }
+.data-grid th { position: sticky; top: 0; z-index: 1; min-width: 150px; height: 74px; padding: 10px 14px; border-color: #3f4a5a; background: #242d3a; font-size: 14px; white-space: nowrap; }
 .data-grid th.actions-head { min-width: 120px; }
 .data-grid th small { display: flex; align-items: center; gap: 8px; color: #a6aeb9; font: 13px var(--sans); }
 .data-grid th small em { padding: 2px 7px; border: 1px solid #444c57; border-radius: 10px; color: #d0d4da; font-size: 10px; font-style: normal; }

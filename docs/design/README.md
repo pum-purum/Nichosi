@@ -14,7 +14,7 @@ Connection cards use locally bundled Simple Icons database logos: the MySQL dolp
 - Keep a narrow app navigation rail beside a database-object tree. The object tree shows the active connection, database, schema, and tables.
 - Give each object category a distinct icon color when active in the navigation rail. Keep the active background, left indicator, and count badge green; inactive icons stay neutral.
 - Show each table’s combined data and index size in the sidebar with a proportional bar. Scale all bars against the largest table in the database, keeping the scale stable while filtering; zero-size tables have an empty bar.
-- Give the data grid most of the available space. Keep row actions at the far right, column names and types in the header, and pagination and row counts in a quiet footer on the workspace background, without a surrounding panel or border.
+- Give the data grid most of the available space. Keep row actions at the far right, column names and types in the header, and pagination and row counts in a quiet footer on the workspace background, without a surrounding panel or border. Keep column headers pinned to the top of the grid during vertical scrolling.
 - Size the scrollable data area to its contents up to the available height, with all four corners rounded. Short tables end immediately after their last row; keep a small gap before the pagination footer.
 - Show data columns before row actions, without a separate row-number column. Use blue for the edit icon and red for the delete icon.
 - Prefer clear, practical labels and familiar line icons. Use Lucide or Tabler icons and check the package license before redistributing bundled assets.
