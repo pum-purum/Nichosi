@@ -7,6 +7,9 @@
   import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
   import { sql as sqlLanguage, MySQL, PostgreSQL, SQLite } from '@codemirror/lang-sql';
   import { Play } from '@lucide/svelte';
+  import { acceptCompletion, autocompletion, completionKeymap } from '@codemirror/autocomplete';
+  import { sqlCompletionTheme } from './sql-completion-theme';
+  import { tableCompletions } from './sql-completion';
   import { sqlEditorHighlighting } from './sql-editor-highlight';
   import { sqlDraft, saveSqlDraft } from './sql-drafts';
   import { sqlStatementError } from './sql-statement';
@@ -16,7 +19,7 @@
 
   type Execution = components['schemas']['ScriptExecution'];
   type Entry = components['schemas']['ScriptHistoryEntry'];
-  let { connection, history: scriptHistory }: { connection: components['schemas']['Connection']; history: ScriptHistory } = $props();
+  let { connection, tables, history: scriptHistory }: { tables: components['schemas']['TableInfo'][]; connection: components['schemas']['Connection']; history: ScriptHistory } = $props();
   let editorHost: HTMLDivElement;
   let editor: EditorView;
   let source = $state('SELECT 1;');
@@ -54,7 +57,9 @@
     editor = new EditorView({ parent: editorHost, state: EditorState.create({ doc: source, extensions: [
       lineNumbers(), history(), highlightActiveLine(), drawSelection(), sqlEditorHighlighting,
       sqlLanguage({ dialect: connection.driver === 'mysql' ? MySQL : connection.driver === 'postgres' ? PostgreSQL : SQLite }),
-      keymap.of([{ key: 'Mod-Enter', run: () => { void execute(); return true; } }, ...defaultKeymap, ...historyKeymap]),
+      autocompletion({ override: [context => tableCompletions(context, tables, connection.driver)], activateOnTypingDelay: 300 }),
+      sqlCompletionTheme,
+      keymap.of([{ key: 'Tab', run: acceptCompletion }, ...completionKeymap, { key: 'Mod-Enter', run: () => { void execute(); return true; } }, ...defaultKeymap, ...historyKeymap]),
       EditorView.contentAttributes.of({ 'aria-label': 'SQL script', spellcheck: 'false' }),
       EditorView.updateListener.of(update => { if (update.docChanged) { source = update.state.doc.toString(); saveDraft(); } }),
       EditorView.theme({ '&': { height: '100%', backgroundColor: 'var(--bg, #191b1f)', color: 'var(--sql-text)' }, '.cm-scroller': { overflow: 'auto', fontFamily: 'var(--mono)', fontSize: '14px' }, '.cm-content': { minHeight: '180px', caretColor: 'var(--accent)' }, '.cm-gutters': { backgroundColor: 'transparent', color: '#777f8b', border: 'none' }, '.cm-activeLine': { backgroundColor: '#ffffff05' }, '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': { backgroundColor: 'color-mix(in srgb, var(--accent) 21%, transparent)' }, '.cm-cursor': { borderLeftColor: 'var(--accent)' } }, { dark: true }),

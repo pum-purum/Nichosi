@@ -498,7 +498,7 @@
             <p role="status">Loading SQL console…</p>
           {:then module}
             {@const SqlConsole = module.default}
-            {#key selectedConnection.id}<SqlConsole connection={selectedConnection} history={scriptHistory} bind:this={sqlConsole} />{/key}
+            {#key selectedConnection.id}<SqlConsole {tables} connection={selectedConnection} history={scriptHistory} bind:this={sqlConsole} />{/key}
           {/await}
         {:else if schemaProperties}
           <section class="object-main" aria-label="Schema properties">

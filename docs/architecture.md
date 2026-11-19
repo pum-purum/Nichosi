@@ -158,6 +158,9 @@ the CodeMirror editor, then select Execute or press
 Ctrl/Cmd+Enter. The server validates and executes the current SQL directly;
 there is no separate preview request or token. Unfinished
 drafts remain in memory while navigating between tables and connections.
+Table names from the connected database are suggested after typing at least three
+identifier characters and pausing for 300 ms. Use the arrow keys and Tab or Enter to
+choose a suggestion, or Escape to dismiss it.
 
 The console always sends `atomic: true`; there is no execution-mode selector.
 Restoring history or drafts does not restore an earlier execution mode.

@@ -126,3 +126,11 @@ Database and table loading use a centered, animated three-bar preloader on a tra
 ## Adding records
 
 Place Add beside Refresh in the table data toolbar. Open the existing record editor with New record as its heading. Display database-reported defaults inside the input fields, without evaluating them or adding captions below the inputs. Use Default controls for omitted fields. Primary keys have no value input; generated identities show a checked Next of sequence control, and other primary keys use their database default. Keep NULL separate from Default and literal input; generated and binary fields remain read-only. Show SQL preview before Apply changes. Add is disabled for read-only connections and tables without a usable key or transactional storage, and is absent for views.
+
+## SQL completion menu
+
+Use the shared surface, border, text, and accent tokens for SQL table suggestions.
+Keep the menu comfortably readable with 15px monospaced table names, rows at
+least 40px tall, rounded corners, and a scrollable list. Highlight the selected
+row with a subtle green background and a left accent indicator. Tab and Enter
+accept the selected suggestion; Escape dismisses the menu.
