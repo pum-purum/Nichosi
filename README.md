@@ -21,7 +21,7 @@ Nichosi connects to **MySQL, MariaDB, PostgreSQL, and SQLite**. It runs as a sel
 
 The interface uses **DM Sans** for labels and controls, and **JetBrains Mono** for SQL and code. Both fonts are bundled locally under the SIL Open Font License 1.1; no external font service is required.
 
-All six screenshots in this README show the updated blue-gray theme at **1920 × 1080**, captured against a PostgreSQL demo database. The `culture` dataset connects countries, cities, people, music, playlists, landmarks, and travel diaries through 11 tables and two views. People and activity are fictional; cultural references and numeric values are illustrative. Demo data is not installed automatically when you start Nichosi.
+All six screenshots in this README show the updated blue-gray theme at **3840 × 2160** (rendered at 1920 × 1080 with 2× pixel density), captured against a PostgreSQL demo database. The `culture` dataset connects countries, cities, people, music, playlists, landmarks, and travel diaries through 11 tables and two views. People and activity are fictional; cultural references and numeric values are illustrative. Demo data is not installed automatically when you start Nichosi.
 
 ### Start with your connections
 
@@ -31,7 +31,7 @@ The start screen brings your saved database profiles together, with their databa
 
 ### Filters that express more than a search box
 
-Find tracks between three and seven minutes, restrict their album position, or include a title match. The builder and expression field show the same filter; this example returns 17 matching tracks.
+Find tracks between three and seven minutes, restrict their album position, or include a title match. The builder and expression field show the same filter; this example returns 19 matching tracks.
 
 ![Applied song filter combining BETWEEN, AND, OR and LIKE, with matching PostgreSQL rows](docs/screenshots/filters.jpg)
 
