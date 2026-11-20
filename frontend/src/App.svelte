@@ -89,6 +89,7 @@
   const filteredCount = $derived(activeObjectType === 'table' ? filteredTables.length : filteredObjects.length);
   const sectionLabel = $derived(objectSections.find(section => section.type === activeObjectType)?.label ?? 'Objects');
   function clearObjectFilter() { tableSearch = ''; filterInput?.focus(); }
+  let smallestTableBytes = $derived(tables.reduce((smallest, table) => Math.min(smallest, table.dataBytes + table.indexBytes), Infinity));
   let largestTableBytes = $derived(tables.reduce((largest, table) => Math.max(largest, table.dataBytes + table.indexBytes), 0));
   let rowsPage = $state<RowsPage | null>(null);
   let editingRow = $state<unknown[] | null>(null);
@@ -383,14 +384,14 @@
     return unsubscribe;
   });
 
-  function formatBytes(bytes: number | null) {
+  function formatBytes(bytes: number | null, fractionDigits = 1) {
     if (bytes === null) return 'Unavailable';
     if (bytes < 1024) return `${bytes} B`;
     const units = ['KB', 'MB', 'GB', 'TB'];
     let size = bytes / 1024;
     let unit = 0;
     while (size >= 1024 && unit < units.length - 1) { size /= 1024; unit += 1; }
-    return `${size.toFixed(1)} ${units[unit]}`;
+    return `${size.toFixed(fractionDigits)} ${units[unit]}`;
   }
 
 
@@ -419,12 +420,17 @@
 {/snippet}
 
 {#snippet sidebarTable(table: TableInfo)}
-                  <button class:active={selectedTable === table.name} class="table-nav-item table-with-size" title={table.name} aria-current={selectedTable === table.name ? 'page' : undefined} onclick={() => void selectTable(table.name)}>
-                    <TableProperties size={17} /><span>{table.displayName ?? table.name}</span><small class="table-size" title={`${formatBytes(table.dataBytes + table.indexBytes)} · ${largestTableBytes > 0 ? ((table.dataBytes + table.indexBytes) / largestTableBytes * 100).toFixed(1) : '0'}% of the largest table`}>
-                      <span>{formatBytes(table.dataBytes + table.indexBytes)}</span>
-                      <span class="table-size-track" aria-hidden="true"><span class="table-size-fill" style:width={`${largestTableBytes > 0 ? (table.dataBytes + table.indexBytes) / largestTableBytes * 100 : 0}%`}></span></span>
-                    </small>
-                  </button>
+  {@const bytes = table.dataBytes + table.indexBytes}
+  {@const relativeSize = largestTableBytes > smallestTableBytes ? (bytes - smallestTableBytes) / (largestTableBytes - smallestTableBytes) : 0}
+  {@const sizeDescription = `${formatBytes(bytes)} · ${largestTableBytes > 0 ? (bytes / largestTableBytes * 100).toFixed(1) : '0'}% of the largest table`}
+  {@const displayName = Array.from(table.displayName ?? table.name)}
+  <button class:active={selectedTable === table.name} class="table-nav-item table-with-size" title={table.name} aria-label={`${table.name} · ${sizeDescription}`} aria-current={selectedTable === table.name ? 'page' : undefined} onclick={() => void selectTable(table.name)}>
+    <TableProperties size={17} />
+    <span title={table.name}>{displayName.length > 32 ? `${displayName.slice(0, 32).join('')}…` : displayName.join('')}</span>
+    <small class="table-size" title={sizeDescription}>
+      <span class="table-size-gradient" style:--size-mix={`${relativeSize * 100}%`} style:--size-width={`${largestTableBytes > 0 ? bytes / largestTableBytes * 100 : 0}%`} aria-hidden="true">{formatBytes(bytes, 0)}</span>
+    </small>
+  </button>
 {/snippet}
 
 {#snippet sidebarObject(object: DatabaseObject)}
